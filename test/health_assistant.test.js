@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {PGlite} from '@electric-sql/pglite';
 import {initHealthDemo,seedHealthDemo,doctors,saveDoctor,appointments,localToday} from '../src/health_demo.js';
 import {initHealthAssistant,healthAssistant,validateHealthIntent} from '../src/health_assistant.js';
-import {initVoiceSettings,saveVoiceSettings,getVoiceSettings} from '../src/voice_settings.js';
+import {initVoiceSettings,saveVoiceSettings,getVoiceSettings,voicePreference} from '../src/voice_settings.js';
 const pg=new PGlite();let queue=Promise.resolve();const db={query:(...a)=>pg.query(...a),connect:async()=>{let release;const prev=queue;queue=new Promise(r=>release=r);await prev;return {query:(...a)=>pg.query(...a),release};}};
 await initHealthDemo(db);await initHealthAssistant(db);await initVoiceSettings(db);await pg.exec('CREATE TABLE panel_companies(company_id TEXT PRIMARY KEY)');await pg.exec("INSERT INTO panel_companies VALUES('A'),('B')");
 const company={company_id:'A',company_name:'Institución de prueba'};
@@ -42,4 +42,19 @@ test('solo superadmin habilita voz, no acepta clave ni otros tenants por perfil'
  await saveVoiceSettings(db,'A',{enabled:false,voiceId:'voice',revision:1},{role:'SUPERADMIN'});assert.equal((await getVoiceSettings(db,'A')).enabled,false);
 });
 test('no acepta IDs inventados ni tipos erróneos',()=>{assert.throws(()=>validateHealthIntent({action:'BOOK',doctorId:'inventado'},[]));assert.throws(()=>validateHealthIntent({action:'CONFIRM',dni:12345678},[]));});
+test('formato de voz se devuelve solo en la petición actual y no contamina el siguiente turno',async()=>{
+ const first=await say({action:'HELP',replyMode:'audio',replyScope:'turn'});assert.equal(first.replyMode,'audio');assert.equal(first.replyScope,'turn');
+ assert.equal((await say({action:'HELP'})).replyMode,null);
+ await db.query("UPDATE panel_health_ai_chats SET state=$1 WHERE company_id='A' AND contact='WA-1'",[{replyMode:'audio_only'}]);
+ assert.equal((await say({action:'HELP'})).replyMode,null);
+ const ongoing=await say({action:'HELP',replyMode:'audio',replyScope:'conversation'});assert.equal(ongoing.replyScope,'conversation');
+ assert.throws(()=>validateHealthIntent({action:'HELP',replyScope:'forever'},[]));
+});
+test('preferencias de sesión se guardan aisladas por empresa y contacto',async()=>{
+ assert.equal(await voicePreference(db,'A','scope-contact','audio_session'),'audio_session');
+ assert.equal(await voicePreference(db,'A','other-contact'),null);
+ assert.equal(await voicePreference(db,'B','scope-contact'),null);
+ assert.equal(await voicePreference(db,'A','scope-contact','audio_only_session'),'audio_only_session');
+ assert.equal(await voicePreference(db,'A','scope-contact','text'),'text');
+});
 test.after(()=>pg.close());
