@@ -19,7 +19,7 @@ export async function saveVoiceSettings(db,id,input,user){
 }
 export async function voicePreference(db,id,contact,mode){
  if(!contact||String(contact).length>120)throw Error('Contacto inválido.');
- if(mode!==undefined){if(!['audio','audio_only','text'].includes(mode))throw Error('Preferencia inválida.');await db.query('INSERT INTO panel_voice_preferences(company_id,contact,mode) VALUES($1,$2,$3) ON CONFLICT(company_id,contact) DO UPDATE SET mode=EXCLUDED.mode',[id,contact,mode]);}
+ if(mode!==undefined){if(!['audio','audio_only','audio_session','audio_only_session','text'].includes(mode))throw Error('Preferencia inválida.');await db.query('INSERT INTO panel_voice_preferences(company_id,contact,mode) VALUES($1,$2,$3) ON CONFLICT(company_id,contact) DO UPDATE SET mode=EXCLUDED.mode',[id,contact,mode]);}
  return (await db.query('SELECT mode FROM panel_voice_preferences WHERE company_id=$1 AND contact=$2',[id,contact])).rows[0]?.mode||null;
 }
 
