@@ -1473,9 +1473,9 @@ app.get('/api/company/:companyId/health/doctors',async(req,res)=>{try{res.json({
 app.post('/api/company/:companyId/health/doctors',requireSuperadmin,async(req,res)=>{try{res.json({ok:true,id:await saveDoctor(pool,req.params.companyId,req.body||{})});}catch(e){healthError(res,e);}});
 app.get('/api/company/:companyId/health/availability',async(req,res)=>{try{res.json({ok:true,...await availability(pool,req.params.companyId,req.query.doctorId,String(req.query.date||''))});}catch(e){healthError(res,e);}});
 app.get('/api/company/:companyId/health/agenda',async(req,res)=>{try{res.json({ok:true,items:await appointments(pool,req.params.companyId,String(req.query.date||''),String(req.query.doctorId||''),String(req.query.specialty||''),String(req.query.service||''))});}catch(e){healthError(res,e);}});
-app.post('/api/company/:companyId/health/book',async(req,res)=>{try{if(req.healthCompany.service_state!=='ACTIVE')throw Error('Servicio demo pausado.');res.json({ok:true,appointment:await reserve(pool,req.params.companyId,req.body||{})});}catch(e){healthError(res,e);}});
+app.post('/api/company/:companyId/health/book',canOperate,async(req,res)=>{try{if(req.healthCompany.service_state!=='ACTIVE')throw Error('Servicio demo pausado.');res.json({ok:true,appointment:await reserve(pool,req.params.companyId,req.body||{})});}catch(e){healthError(res,e);}});
 app.post('/api/company/:companyId/health/state',canOperate,async(req,res)=>{try{if(req.body.state!=='CANCELLED')throw Error('La agenda permite reservar y cancelar; no requiere un circuito clínico.');res.json({ok:true,appointment:await appointmentState(pool,req.params.companyId,req.body.id,req.body.state,null,req.session.sub)});}catch(e){healthError(res,e);}});
-app.post('/api/company/:companyId/health/chat',async(req,res)=>{try{if(req.healthCompany.service_state!=='ACTIVE')throw Error('Servicio pausado.');const result=await healthAssistant(pool,req.healthCompany,{contact:'SIM-'+crypto.createHash('sha256').update(req.session.sub+'|'+String(req.body.sessionId||'').slice(0,40)).digest('hex'),text:req.body.text,messageId:req.body.messageId},interpretHealth);res.json({ok:true,...result});}catch(e){healthError(res,e);}});
+app.post('/api/company/:companyId/health/chat',canOperate,async(req,res)=>{try{if(req.healthCompany.service_state!=='ACTIVE')throw Error('Servicio pausado.');const result=await healthAssistant(pool,req.healthCompany,{contact:'SIM-'+crypto.createHash('sha256').update(req.session.sub+'|'+String(req.body.sessionId||'').slice(0,40)).digest('hex'),text:req.body.text,messageId:req.body.messageId},interpretHealth);res.json({ok:true,...result});}catch(e){healthError(res,e);}});
 app.get('/api/company/:companyId/health/verify',async(req,res)=>{
  try{const code=String(req.query.code||'').replace(/^ONE-SALUD:/,'');if(!/^[a-f0-9]{48}$/.test(code))return res.status(400).json({ok:false,error:'QR inválido.'});
  const appointment=(await pool.query('SELECT id,patient,dni,doctor_name,specialty,day,slot,mode,start_time,end_time,room,address,service,state FROM panel_health_appointments WHERE company_id=$1 AND qr_token=$2',[req.params.companyId,code])).rows[0];
@@ -2558,3 +2558,4 @@ app.listen(PORT, () => {
     `DLL ONE Panel Cloud V5.8.7 escuchando en puerto ${PORT}`
   );
 });
+
