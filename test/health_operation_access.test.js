@@ -22,7 +22,7 @@ const source=readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
 const dbSource=readFileSync(new URL('../src/db.js',import.meta.url),'utf8');
 const accessSource=dbSource.slice(dbSource.indexOf('export async function userCanAccessCompany'),dbSource.indexOf('export async function getPanelUserById')).replace('export ','');
 const userCanAccessCompany=new Function('pool',accessSource+'\nreturn userCanAccessCompany;')(pool);
-const companyAccess=source.slice(source.indexOf('async function companyAccessRequired'),source.indexOf('function normalizeCatalogRowsFromWorkbook'));
+const companyAccess=source.slice(source.indexOf('async function companyAccessRequired'),source.indexOf('function runtimeStateToChatItem'));
 const globalGate=source.slice(source.indexOf('app.use(\n  "/api/company/:companyId"'),source.indexOf("app.use('/api/company/:companyId/business-admin'"));
 const healthGate=source.slice(source.indexOf("app.use('/api/company/:companyId/health',"),source.indexOf("app.get('/api/company/:companyId/health/doctors'"));
 const registrations=source.split('\n').filter(line=>/^app\.(get|post)\('\/api\/company\/:companyId\/health\/(book|chat|state|agenda)'/.test(line)).join('\n');

@@ -23,14 +23,19 @@ Sólo requiere actualizar el panel; el motor existente obtiene los precios del c
 
 Ejecutar `npm ci`, `npm test`, `npm run check`. En una empresa de prueba ONE Ventas: exportar, generar un ajuste por categoría, revisar antes/después, aplicar una vez y comprobar los precios del bot. Cambiar un producto desde otra sesión entre vista previa y aplicación debe impedir el guardado y exigir recalcular. Verificar usuario de consulta y cambio de empresa durante una petición.
 
-El CSV es de consulta/respaldo; **no reimportarlo como restauración automática**. El importador actual tiene límite de 1000 filas, empareja por código y no preserva todos los estados/IDs. Los textos con apariencia de fórmula se exportan con apóstrofo de seguridad; esto cambia su representación. No se eliminan datos ni tablas al revertir la versión.
+El CSV es de consulta/respaldo; **no reimportarlo como restauración automática**. El importador por lotes admite hasta 10.000 filas y conserva IDs y campos omitidos al actualizar por código exacto; no es una restauración completa. Los textos con apariencia de fórmula se exportan con apóstrofo de seguridad; esto cambia su representación. No se eliminan datos ni tablas al revertir la versión.
 
 ## Pendientes de la migración completa
 
-- Importación por lotes con vista previa, confirmación/cancelación y reanudación; paginación/filtros de catálogo.
+- Paginación/filtros de catálogo. La importación por lotes está implementada en este bloque; falta validar su despliegue.
 - Preferencias administrativas restantes, logos en documentos y selección persistida de sucursal por pedido.
 - Oportunidades, presupuestos, agenda, plantillas y reemplazo del resumen diario.
 - Edición administrativa de pedidos, avisos y métricas operativas.
 - Conciliar históricos completos, archivos de Drive y referencias; los snapshots recortados no equivalen a migración histórica.
 - Chat web/páginas públicas y editor visual del menú.
 - Validar despliegues, recuperación sin Apps Script y colas; recién después revisar los activadores y el corte. No apagar Apps Script con estos bloques solamente.
+
+
+## Importación por lotes (implementada, pendiente de despliegue)
+
+ONE Ventas dispone de cargas persistidas de hasta 10.000 filas en lotes de 500, vista previa de 50 filas, confirmación explícita, cancelación y reanudación. La aplicación valida empresa, permisos, códigos y revisión; conserva productos ausentes y evita aplicar dos veces. Ver CATALOG_IMPORT.md. No completa la migración histórica ni reemplaza un backup.

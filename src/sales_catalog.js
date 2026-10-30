@@ -4,7 +4,7 @@ import {enabled,isGastro} from './gastro_catalog.js';
 export const isSales=c=>configuredModule(c,'ventas');
 export async function initSalesCatalog(db){await db.query(`CREATE TABLE IF NOT EXISTS panel_sales_catalog(company_id TEXT PRIMARY KEY,items JSONB NOT NULL,revision INTEGER NOT NULL DEFAULT 1,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);}
 const str=(x,n=200)=>String(x??'').trim().slice(0,n);
-function normalize(input,old={}){
+export function normalizeSalesItem(input,old={}){
  old=old||{};
  const x={...old,...input};
  const nombre=str(x.nombre),precio=Number(x.precio);
@@ -19,7 +19,7 @@ export async function getSalesCatalog(db,company,readLegacy){
  let row=(await db.query('SELECT * FROM panel_sales_catalog WHERE company_id=$1',[company.company_id])).rows[0];
  if(row||!readLegacy)return row||null;
  const result=await readLegacy();if(!Array.isArray(result?.items))throw Error('No se pudo importar la lista completa. No se modificó ningún producto.');
- const items=result.items.map((x,i)=>({...normalize(x),fila:i+2}));
+ const items=result.items.map((x,i)=>({...normalizeSalesItem(x),fila:i+2}));
  await db.query('INSERT INTO panel_sales_catalog(company_id,items) VALUES($1,$2) ON CONFLICT DO NOTHING',[company.company_id,JSON.stringify(items)]);
  return getSalesCatalog(db,company);
 }
@@ -38,7 +38,7 @@ export async function saveSalesItems(db,company,inputs,revision,{bulk=false}={})
    if(input.id&&!old)throw Error('El producto no pertenece a esta empresa.');
    if(bulk&&code){const matches=items.filter(x=>x.codigo===code);if(matches.length>1)throw Error('Hay más de un producto con el código '+code);old=matches[0]||null;}
    if(!bulk&&code&&items.some(x=>x.codigo===code&&x!==old))throw Error('Ese código ya existe. Editá el producto existente.');
-   const item=normalize(input,old);item.fila=old?.fila||Math.max(1,...items.map(x=>x.fila||1))+1;
+   const item=normalizeSalesItem(input,old);item.fila=old?.fila||Math.max(1,...items.map(x=>x.fila||1))+1;
    if(old)items[items.indexOf(old)]=item;else items.push(item);
   }
   const saved=(await client.query('UPDATE panel_sales_catalog SET items=$2,revision=revision+1,updated_at=NOW() WHERE company_id=$1 RETURNING *',[company.company_id,JSON.stringify(items)])).rows[0];
@@ -64,3 +64,4 @@ export function parseSalesPrice(value){
  if(!/^\d+(?:\.\d{1,2})?$/.test(v))throw Error('Formato de precio inválido: '+value);
  return Number(v);
 }
+
