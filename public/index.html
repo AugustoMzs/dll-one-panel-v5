@@ -975,13 +975,14 @@
                 <h3 class="card-title">Importar lista de precios</h3>
                 <p class="card-sub">Acepta Excel .xlsx/.xls y CSV. La primera hoja debe tener al menos NOMBRE o PRODUCTO. También reconoce PRECIO, CÓDIGO, CATEGORÍA, MARCA y UNIDAD.</p>
                 <input id="catalogFile" type="file" accept=".xlsx,.xls,.csv">
-                <div class="actions-row"><button class="btn btn-primary" onclick="importCatalogFile()">Importar archivo</button></div>
+                <div class="actions-row"><button class="btn btn-primary" onclick="importCatalogFile()">Cargar para revisar</button></div>
               </div>
               <div id="salesTools" class="card"></div>
             </div>
 
             <div class="card">
               <h3 class="card-title">Productos y servicios</h3>
+              <div id="salesImport"></div>
               <p id="salesStatus" role="status"></p><button class="btn btn-light" onclick="loadCatalog()">Recargar lista</button>
               <div id="catalogList" class="data-list"><div class="empty">Cargando catálogo…</div></div>
             </div>
@@ -1305,6 +1306,7 @@
 <script src="/bot_instructions.js"></script>
 <script src="/business_admin.js"></script>
 <script src="/sales_tools.js"></script>
+<script src="/sales_import.js"></script>
 <script src="/migration_audit.js"></script>
 <script src="/company_service.js"></script>
 <script src="/health_demo.js"></script>
@@ -2321,7 +2323,7 @@
     const target=companyId;salesRevision=null;
     $('salesStatus').textContent='Cargando la lista…';
     try{const r=await api(`/api/company/${encodeURIComponent(target)}/catalog`);if(target!==companyId)return;
-      catalogItems=r.items||[];salesRevision=r.revision;renderCatalog();clearCatalogForm();$('salesStatus').textContent='Lista guardada en el panel.';await loadSalesTools();
+      catalogItems=r.items||[];salesRevision=r.revision;renderCatalog();clearCatalogForm();$('salesStatus').textContent='Lista guardada en el panel.';await loadSalesTools();await loadSalesImports();
     }catch(err){if(target===companyId)$('salesStatus').textContent='No se pudo cargar: '+err.message;}
   }
 
@@ -2353,23 +2355,6 @@
     });
   }
 
-  async function importCatalogFile(){
-    invalidateSalesPricePreview();
-    if(salesBusy)return;
-    if(salesRevision===null){showNotice('Primero cargá la lista existente.');return;}
-    const file=$('catalogFile').files?.[0];
-    if(!file){showNotice('Seleccioná un archivo Excel o CSV.');return;}
-    if(!confirm(`¿Importar ${file.name}? Los códigos existentes se actualizarán y los nuevos se agregarán.`))return;
-    const target=companyId,revision=salesRevision;salesBusy=true;showLoading(true);
-    try{
-      const base64=await fileToBase64(file);if(target!==companyId)return;
-      const r=await api(`/api/company/${encodeURIComponent(target)}/catalog/import-file`,{method:'POST',body:JSON.stringify({filename:file.name,base64,revision})});
-      if(target!==companyId)return;
-      catalogItems=r.items;salesRevision=r.revision;renderCatalog();clearCatalogForm();
-      $('catalogFile').value='';$('salesStatus').textContent=`Importación terminada: ${r.guardados} filas procesadas.`;
-    }catch(err){if(target===companyId)$('salesStatus').textContent='No se importó: '+err.message;}
-    finally{salesBusy=false;showLoading(false);}
-  }
 
   let gastroRevision=null;
   const gastroEdits={};
@@ -2603,3 +2588,4 @@
   <div id="gMenuLightbox" class="lightbox hidden" onclick="if(event.target===this)closeGastroMenuPreview()"><div class="lightbox-card"><button class="lightbox-close" onclick="closeGastroMenuPreview()">×</button><img id="gMenuPreviewImg" alt="Vista previa del menú"></div></div>
 </body>
 </html>
+
