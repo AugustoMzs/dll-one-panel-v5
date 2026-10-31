@@ -31,6 +31,8 @@ import {liveCustomers} from "./customers.js";
 import {mergeThreadMessages} from "./thread_messages.js";
 import {dateMs, formatDateAr} from "./dates.js";
 import {getPickup, savePickup} from "./pickup.js";
+import {createLoginLimiter} from "./login_limiter.js";
+import {safeMessage,GENERIC_ERROR} from "./safe_error.js";
 import express from "express";
 import helmet from "helmet";
 import compression from "compression";
@@ -165,6 +167,9 @@ function cleanupRecentHumanSends() {
 }
 
 app.disable("x-powered-by");
+// Detrás del proxy de Railway: así req.ip es la IP real del visitante y no la del proxy.
+app.set("trust proxy", 1);
+const loginLimiter = createLoginLimiter();
 
 app.use(
   helmet({
@@ -173,7 +178,15 @@ app.use(
   })
 );
 app.use(compression());
-app.use(express.json({ limit: "15mb" }));
+// Rutas públicas: cuerpo chico. El resto (cargas de archivos, sincronización) conserva 15 MB.
+const jsonChico = express.json({ limit: "10kb" });
+const jsonPagos = express.json({ limit: "200kb" });
+const jsonGrande = express.json({ limit: "15mb" });
+app.use((req, res, next) => {
+  if (req.path === "/api/login" || req.path === "/api/logout") return jsonChico(req, res, next);
+  if (req.path.startsWith("/payments/")) return jsonPagos(req, res, next);
+  return jsonGrande(req, res, next);
+});
 app.use(cookieParser());
 
 function safeEqual(a, b) {
@@ -693,7 +706,7 @@ async function companyAccessRequired(req, res, next) {
   } catch (err) {
     return res.status(500).json({
       ok: false,
-      error: String(err?.message || err)
+      error: safeMessage(err)
     });
   }
 }
@@ -887,7 +900,7 @@ app.get("/health", async (_req, res) => {
       ok: false,
       service: "DLL ONE Panel Cloud",
       version: "5.8.7",
-      error: String(err?.message || err)
+      error: safeMessage(err)
     });
   }
 });
@@ -921,7 +934,7 @@ app.post("/sync/company", async (req, res) => {
   } catch (err) {
     return res.status(400).json({
       ok: false,
-      error: String(err?.message || err)
+      error: safeMessage(err)
     });
   }
 });
@@ -929,17 +942,29 @@ app.post("/sync/company", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const user = String(req.body?.user || "");
   const password = String(req.body?.password || "");
+  const ip = req.ip || "desconocida";
+
+  const gate = loginLimiter.check(ip, user);
+  if (!gate.allowed) {
+    res.set("Retry-After", String(gate.retryAfterSec));
+    return res.status(429).json({
+      ok: false,
+      error: "Demasiados intentos. Probá de nuevo en unos minutos."
+    });
+  }
 
   try {
     const sessionUser = await validLogin(user, password);
 
     if (!sessionUser) {
+      loginLimiter.fail(ip, user);
       return res.status(401).json({
         ok: false,
         error: "Usuario o contraseña incorrectos."
       });
     }
 
+    loginLimiter.success(ip, user);
     issueSession(res, sessionUser);
 
     return res.json({
@@ -949,9 +974,10 @@ app.post("/api/login", async (req, res) => {
       role: sessionUser.role
     });
   } catch (err) {
+    console.error("[login]", err);
     return res.status(500).json({
       ok: false,
-      error: String(err?.message || err)
+      error: GENERIC_ERROR
     });
   }
 });
@@ -992,7 +1018,7 @@ app.get("/api/companies", authRequired, async (req, res) => {
   } catch (err) {
     return res.status(500).json({
       ok: false,
-      error: String(err?.message || err)
+      error: safeMessage(err)
     });
   }
 });
@@ -1002,7 +1028,7 @@ app.get("/api/admin/users", authRequired, requireSuperadmin, async (_req, res) =
     const users = await listPanelUsers();
     return res.json({ ok:true, items:users });
   } catch (err) {
-    return res.status(500).json({ ok:false, error:String(err?.message || err) });
+    return res.status(500).json({ ok:false, error:safeMessage(err) });
   }
 });
 
@@ -1025,7 +1051,7 @@ app.post("/api/admin/users", authRequired, requireSuperadmin, async (req, res) =
 
     return res.json({ ok:true, user });
   } catch (err) {
-    return res.status(400).json({ ok:false, error:String(err?.message || err) });
+    return res.status(400).json({ ok:false, error:safeMessage(err) });
   }
 });
 
@@ -1035,7 +1061,7 @@ app.post("/api/admin/users/:userId/active", authRequired, requireSuperadmin, asy
     if (!user) return res.status(404).json({ok:false,error:"Usuario no encontrado."});
     return res.json({ok:true,user});
   } catch (err) {
-    return res.status(400).json({ok:false,error:String(err?.message || err)});
+    return res.status(400).json({ok:false,error:safeMessage(err)});
   }
 });
 
@@ -1045,7 +1071,7 @@ app.post("/api/admin/companies", authRequired, requireSuperadmin, async (req, re
 
     return res.json({ ok:true, ...result });
   } catch (err) {
-    return res.status(400).json({ ok:false, error:String(err?.message || err) });
+    return res.status(400).json({ ok:false, error:safeMessage(err) });
   }
 });
 
@@ -1067,7 +1093,7 @@ app.post('/api/admin/companies/:companyId/connection/import',authRequired,requir
   if(existing.native)return res.json({ok:true,...existing});
   let data;try{data=await postMotor('/admin/panel/connection-export',{companyId:id});}catch{throw Error('No pude leer la conexión actual del motor. Comprobá que esté activo y actualizado a 4.3.11.');}
   res.json({ok:true,...await importExistingConnection(pool,id,data.company,req.session?.sub)});
- }catch(err){res.status(400).json({ok:false,error:err.message});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post('/api/admin/companies/:companyId/connection/check',authRequired,requireSuperadmin,async(req,res)=>{
  res.set('Cache-Control','no-store');
@@ -1079,7 +1105,7 @@ app.post('/api/admin/companies/:companyId/connection/check',authRequired,require
   const latest=await nativeConnectionStatus(pool,req.params.companyId);
   if(latest.revision!==row.revision)throw Error('La conexión cambió durante la consulta. Comprobá nuevamente.');
   res.json({ok:true,...result,revision:row.revision});
- }catch(err){res.status(400).json({ok:false,error:err.message});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post('/api/admin/health-demo',authRequired,requireSuperadmin,async(req,res)=>{
  try{
@@ -1091,7 +1117,7 @@ app.get('/api/admin/company-services',authRequired,requireSuperadmin,async(req,r
  res.set('Cache-Control','no-store');try{res.json({ok:true,items:await Promise.all((await listCompanyServices(pool)).map(async c=>({...c,voice:await getVoiceSettings(pool,c.company_id)})))});}catch{res.status(503).json({ok:false,error:'No pude consultar las empresas.'});}
 });
 app.post('/api/admin/companies/:companyId/voice',authRequired,requireSuperadmin,async(req,res)=>{
- res.set('Cache-Control','no-store');try{res.json({ok:true,voice:await saveVoiceSettings(pool,req.params.companyId,req.body||{},req.session)});}catch(e){res.status(400).json({ok:false,error:e.message});}
+ res.set('Cache-Control','no-store');try{res.json({ok:true,voice:await saveVoiceSettings(pool,req.params.companyId,req.body||{},req.session)});}catch(e){res.status(400).json({ok:false,error:safeMessage(e)});}
 });
 app.post('/motor/voice/preference',authenticateMotorRequest,async(req,res)=>{
  try{const c=await getCompany(req.body.companyId);if(!c||c.service_state!=='ACTIVE'||String(c.phone_number_id)!==String(req.body.phoneNumberId))return res.status(403).json({ok:false,error:'Empresa no disponible.'});
@@ -1105,7 +1131,7 @@ app.post('/api/admin/companies/:companyId/service',authRequired,requireSuperadmi
   const company=await changeCompanyService(pool,req.params.companyId,req.body||{},req.session.sub);
   let motorApplied=false;try{const r=await postMotor('/admin/panel/refresh-config',{companyId:company.company_id,state:company.service_state});motorApplied=r.applied===true;}catch{}
   res.json({ok:true,company,motorApplied});
- }catch(e){res.status(400).json({ok:false,error:e.message});}
+ }catch(e){res.status(400).json({ok:false,error:safeMessage(e)});}
 });
 app.get('/api/admin/migration-audit',authRequired,requireSuperadmin,async(req,res)=>{
  res.set('Cache-Control','no-store');
@@ -1214,12 +1240,12 @@ app.get('/motor/company/:companyId/menu/:imageId',authenticateMotorRequest,async
   if(!settings.settings.menu.auto||!settings.settings.menu.imagenes.some(x=>x.idImagen===req.params.imageId&&x.activa))throw new Error('Imagen desactivada.');
   const file=await getMenuFile(pool,company,req.params.imageId,id=>postBridge(company,'gastro_menu_preview',{idImagen:id}));
   res.set('Cache-Control','no-store');res.json({ok:true,companyId:company.company_id,...file});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.post("/motor/media/receive",authenticateMotorRequest,async(req,res)=>{
   try{return res.json({ok:true,...await storeReceipt(pool,req.body||{})});}
-  catch(err){return res.status(400).json({ok:false,error:String(err.message||err)});}
+  catch(err){return res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.post(
@@ -1252,7 +1278,7 @@ app.post(
     } catch (err) {
       return res.status(400).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1280,7 +1306,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1305,7 +1331,7 @@ app.post(
     } catch (err) {
       return res.status(400).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1332,7 +1358,7 @@ app.post(
       return res.status(400).json({
         ok: false,
         code:err?.code||"",
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1357,7 +1383,7 @@ app.post(
       return res.status(400).json({
         ok: false,
         code:err?.code||"",
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1382,7 +1408,7 @@ app.post(
     } catch (err) {
       return res.status(400).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1423,7 +1449,7 @@ app.get('/api/company/:companyId/health/print',async(req,res)=>{try{const date=S
 
 app.get("/api/company/:companyId/receipts",authRequired,async(req,res)=>{
  try{return res.json({ok:true,items:await listReceipts(pool,req.params.companyId)});}
- catch(err){return res.status(500).json({ok:false,error:String(err.message||err)});}
+ catch(err){return res.status(500).json({ok:false,error:safeMessage(err)});}
 });
 app.get("/api/company/:companyId/receipts/:id/file",authRequired,async(req,res)=>{
  try{
@@ -1442,7 +1468,7 @@ app.get("/api/company/:companyId/receipts/:id/orders",authRequired,async(req,res
   const r=(await pool.query('SELECT client_id FROM panel_receipts WHERE company_id=$1 AND id=$2',[req.params.companyId,req.params.id])).rows[0];
   if(!r)return res.status(404).json({ok:false,error:"Archivo no encontrado."});
   return res.json({ok:true,items:await candidates(pool,req.params.companyId,r.client_id)});
- }catch(err){return res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){return res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post("/api/company/:companyId/receipts/:id/review",authRequired,async(req,res)=>{
  try{
@@ -1464,7 +1490,7 @@ app.post("/api/company/:companyId/receipts/:id/review",authRequired,async(req,re
     }catch{warning='La revisión se guardó, pero no se pudo avisar al cliente por WhatsApp. Podés avisarle desde Conversaciones.';}
   }
   return res.json({ok:true,receipt,warning});
- }catch(err){return res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){return res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get("/api/company/:companyId/notifications", authRequired, async(req,res)=>{
@@ -1477,7 +1503,7 @@ app.post("/api/company/:companyId/conversation/:clientId/read", authRequired, as
   try {
     await markThreadRead(pool,req.params.companyId,notificationActor(req.session),req.params.clientId,req.body?.lastMessageId);
     return res.json({ok:true});
-  } catch(err) {return res.status(400).json({ok:false,error:String(err.message || err)});}
+  } catch(err) {return res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.get("/api/company/:companyId/clientes", authRequired, async(req,res)=>{
   try {
@@ -1485,7 +1511,7 @@ app.get("/api/company/:companyId/clientes", authRequired, async(req,res)=>{
     if(!company)return res.status(404).json({ok:false,error:"Empresa no encontrada."});
     const items=await liveCustomers(pool,company.company_id,rows(company.snapshot,"clientes"));
     return res.json({ok:true,source:"POSTGRES_DIRECT",items,total:items.length,syncedAt:new Date().toISOString()});
-  }catch(err){return res.status(500).json({ok:false,error:String(err.message || err)});}
+  }catch(err){return res.status(500).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get(
@@ -1526,7 +1552,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -1575,7 +1601,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -1657,7 +1683,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -1704,7 +1730,7 @@ app.post(
           }
         );
       } catch (err) {
-        motorWarning = String(err?.message || err);
+        motorWarning = safeMessage(err);
       }
 
       return res.json({
@@ -1716,7 +1742,7 @@ app.post(
     } catch (err) {
       return res.status(500).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -1855,7 +1881,7 @@ app.post(
 
       return res.status(502).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -1896,7 +1922,7 @@ app.post(
           }
         );
       } catch (err) {
-        motorWarning = String(err?.message || err);
+        motorWarning = safeMessage(err);
       }
 
       return res.json({
@@ -1908,7 +1934,7 @@ app.post(
     } catch (err) {
       return res.status(500).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -1916,7 +1942,7 @@ app.post(
 
 app.get('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
  try{const row=await getOrderHours(pool,req.params.companyId);res.json({ok:true,...row,status:evaluateHours(row.settings)});}
- catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
  try{
@@ -1925,7 +1951,7 @@ app.post('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
    if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar horarios.'});
   }
   const row=await saveOrderHours(pool,req.params.companyId,req.body||{});res.json({ok:true,...row,status:evaluateHours(row.settings)});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get('/api/company/:companyId/bot-instructions',authRequired,async(req,res)=>{
@@ -1941,19 +1967,19 @@ app.post('/api/company/:companyId/bot-instructions',authRequired,async(req,res)=
    if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar las instrucciones del bot.'});
   }
   res.json({ok:true,...await saveBotInstructions(pool,req.params.companyId,req.body||{})});
- }catch(err){res.status(400).json({ok:false,error:err.message});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get('/api/company/:companyId/profile',authRequired,async(req,res)=>{
  try{const company=await getCompany(req.params.companyId);if(!company)return res.status(404).json({ok:false,error:'Empresa no encontrada.'});res.json({ok:true,...await getBusinessProfile(pool,company)});}
- catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post('/api/company/:companyId/profile',authRequired,async(req,res)=>{
  try{
   const isSuper=String(req.session?.role||'').toUpperCase()==='SUPERADMIN';
   if(!isSuper){const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar la empresa.'});}
   res.json({ok:true,...await saveBusinessProfile(pool,req.params.companyId,req.body||{},isSuper)});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get(
@@ -1966,7 +1992,7 @@ app.get(
       const result = await ensureSales(company);
       return res.json({ok:true,...result});
     } catch (err) {
-      return res.status(502).json({ok:false,error:String(err?.message || err)});
+      return res.status(502).json({ok:false,error:safeMessage(err)});
     }
   }
 );
@@ -1982,7 +2008,7 @@ app.post(
       const result = await saveSalesItems(pool,company,[req.body||{}],req.body?.revision);
       return res.json({ok:true,...result});
     } catch (err) {
-      return res.status(502).json({ok:false,error:String(err?.message || err)});
+      return res.status(502).json({ok:false,error:safeMessage(err)});
     }
   }
 );
@@ -2027,7 +2053,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok:false,
-        error:String(err?.message || err)
+        error:safeMessage(err)
       });
     }
   }
@@ -2043,7 +2069,7 @@ app.get(
       const result = (await ensureCatalog(company)).catalog;
       return res.json({ok:true,...result});
     } catch (err) {
-      return res.status(502).json({ok:false,error:String(err?.message || err)});
+      return res.status(502).json({ok:false,error:safeMessage(err)});
     }
   }
 );
@@ -2069,7 +2095,7 @@ for (const [pathName, operation] of [
         const result = await saveGastroItem(pool,company,pathName,req.body||{});
         return res.json({ok:true,...result});
       } catch (err) {
-        return res.status(502).json({ok:false,error:String(err?.message || err)});
+        return res.status(502).json({ok:false,error:safeMessage(err)});
       }
     }
   );
@@ -2080,21 +2106,21 @@ app.get('/api/company/:companyId/gastro/migration',authRequired,async(req,res)=>
  try{
   const company=await getCompany(req.params.companyId);if(!company)return res.status(404).json({ok:false,error:'Empresa no encontrada.'});
   res.set('Cache-Control','no-store');res.json({ok:true,...await gastroMigrationStatus(pool,company)});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 app.post('/api/company/:companyId/gastro/migration',authRequired,canEditGastro,async(req,res)=>{
  try{
   const company=await getCompany(req.params.companyId);if(!company)return res.status(404).json({ok:false,error:'Empresa no encontrada.'});
   const status=await migrateGastroStep(pool,company,req.body||{},(operation,payload)=>postBridge(company,operation,payload,req.session?.sub||'PANEL_V5'));
   res.json({ok:true,...status});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 app.get('/api/company/:companyId/gastro/settings',authRequired,async(req,res)=>{
   try{
     const company=await getCompany(req.params.companyId);if(!company)throw new Error('Empresa no encontrada.');
     const row=await ensureSettings(company);res.json({ok:true,...row.settings,settingsRevision:row.revision});
-  }catch(err){res.status(503).json({ok:false,error:String(err.message||err)});}
+  }catch(err){res.status(503).json({ok:false,error:safeMessage(err)});}
 });
 for(const [path,operation] of [
  ['config','config'],['payment','payment'],['payment/:id/toggle','payment/toggle'],
@@ -2107,7 +2133,7 @@ for(const [path,operation] of [
    await ensureSettings(company);
    const row=await changeSettings(pool,company,operation,req.body||{},req.params.id||'');
    res.json({ok:true,...row.settings,settingsRevision:row.revision});
-  }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+  }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
  });
 }
 app.get('/api/company/:companyId/gastro/menu/:id/preview',authRequired,async(req,res)=>{
@@ -2116,7 +2142,7 @@ app.get('/api/company/:companyId/gastro/menu/:id/preview',authRequired,async(req
   await ensureSettings(company);
   const file=await getMenuFile(pool,company,req.params.id,id=>postBridge(company,'gastro_menu_preview',{idImagen:id}));
   res.set('Cache-Control','no-store');res.json({ok:true,dataUrl:`data:${file.mime};base64,${file.base64}`});
- }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
+ }catch(err){res.status(400).json({ok:false,error:safeMessage(err)});}
 });
 
 
@@ -2140,7 +2166,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -2214,7 +2240,7 @@ app.post(
           } catch (err) {
             notification = {
               sent: false,
-              warning: String(err?.message || err)
+              warning: safeMessage(err)
             };
           }
         }
@@ -2228,7 +2254,7 @@ app.post(
     } catch (err) {
       return res.status(400).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -2254,7 +2280,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -2341,7 +2367,7 @@ app.post(
     } catch (err) {
       return res.status(400).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
@@ -2437,7 +2463,7 @@ app.get(
     } catch (err) {
       return res.status(500).json({
         ok: false,
-        error: String(err?.message || err)
+        error: safeMessage(err)
       });
     }
   }
