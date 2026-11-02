@@ -893,6 +893,16 @@
             </div>
 
             <div class="card">
+              <h3 class="card-title">Atención y trato al cliente</h3>
+              <p class="card-sub">Preferencias independientes de esta empresa. El catálogo, los medios de pago y los horarios siguen siendo la única fuente de datos comerciales.</p>
+              <div class="form-grid">
+                <div class="form-field full"><label for="bizWelcome">Mensaje de bienvenida (opcional)</label><textarea id="bizWelcome" maxlength="350" rows="3" placeholder="¡Hola! ¿En qué te puedo ayudar?"></textarea><small>Se usa solo cuando el cliente saluda sin pedir nada más. No incluyas precios que deban actualizarse desde el catálogo.</small></div>
+                <label class="module-check"><input id="bizAskName" type="checkbox"> Consultar el nombre si el cliente saluda y WhatsApp no lo proporciona</label>
+                <div class="form-field full"><label for="bizHandoff">Mensaje adicional al derivar a una persona (opcional)</label><textarea id="bizHandoff" maxlength="350" rows="3" placeholder="Un integrante del equipo te va a ayudar por este chat."></textarea><small>Solo se agrega cuando el bot deriva una conversación a atención humana.</small></div>
+              </div>
+              <p class="mini-note">Guardá estas preferencias junto con los datos generales usando «Guardar cambios».</p>
+            </div>
+            <div class="card">
               <h3 class="card-title">Instrucciones del bot</h3>
               <p class="card-sub">Indicaciones para las respuestas con IA: tono, recomendaciones y detalles de atención. Las respuestas automáticas del pedido mantienen sus reglas.</p>
               <fieldset id="botInstructionsFields" disabled style="border:0;padding:0;min-width:0">
@@ -2220,6 +2230,9 @@
     $('bizPhone').value=c.TELEFONO||'';
     $('bizAddress').value=c.DIRECCION||'';
     $('bizEmail').value=c.EMAIL||'';
+    $('bizWelcome').value=c.MENSAJE_BIENVENIDA||'';
+    $('bizAskName').checked=c.PEDIR_NOMBRE_CLIENTE===true;
+    $('bizHandoff').value=c.MENSAJE_DERIVACION_HUMANA||'';
     $('bizPhoneNumberId').value=e.phoneNumberId||'';
     const isSuper=String(currentUser?.role||'').toUpperCase()==='SUPERADMIN';
     const active=['ventas','gastro','eventos','servicios','salud'].filter(k=>moduleFlag(m,k));
@@ -2247,7 +2260,10 @@
     if(businessRevision===null){status.textContent='Cargá la configuración antes de guardar.';return;}
     const body={revision:businessRevision,
       NOMBRE_EMPRESA:$('bizName').value.trim(), TIPO_NEGOCIO:$('bizType').value,
-      TELEFONO:$('bizPhone').value.trim(), DIRECCION:$('bizAddress').value.trim(), EMAIL:email.value.trim()
+      TELEFONO:$('bizPhone').value.trim(), DIRECCION:$('bizAddress').value.trim(), EMAIL:email.value.trim(),
+      MENSAJE_BIENVENIDA:$('bizWelcome').value.trim(),
+      PEDIR_NOMBRE_CLIENTE:$('bizAskName').checked,
+      MENSAJE_DERIVACION_HUMANA:$('bizHandoff').value.trim()
     };
     if(isSuper){
       body.PHONE_NUMBER_ID=$('bizPhoneNumberId').value.trim();
