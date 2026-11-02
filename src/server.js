@@ -5,6 +5,7 @@ import {initSalesTools} from './sales_tools.js';
 import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
+import {editDirectOrder,listOrderEdits} from './order_edits.js';
 import {eventsChat} from './events_chat.js';
 import {initPayments, paymentSettings} from './payment_settings.js';
 import {paymentRouter,publicPaymentRoutes,flushPaymentNotifications} from './payment_routes.js';
@@ -2122,7 +2123,7 @@ app.get('/api/company/:companyId/gastro/menu/:id/preview',authRequired,async(req
 
 app.get(
   "/api/company/:companyId/pedidos",
-  authRequired,
+  authRequired, companyAccessRequired,
   async (req, res) => {
     try {
       const items = await listDirectOrders(
@@ -2145,6 +2146,24 @@ app.get(
     }
   }
 );
+
+app.post('/api/company/:companyId/pedidos/:orderId/edit',
+  authRequired, canOperate, async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{
+    const result=await editDirectOrder(pool,req.params.companyId,req.params.orderId,req.body||{},String(req.session?.sub||req.session?.uid||'PANEL'));
+    // El cambio administrativo nunca informa pagos, precios ni importes por WhatsApp.
+    res.json(result);
+  }catch(error){
+    return res.status(error?.code==='ORDER_CONFLICT'?409:400).json({ok:false,error:String(error?.message||error)});
+  }
+});
+app.get('/api/company/:companyId/pedidos/:orderId/edits',
+  authRequired, companyAccessRequired, async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{res.json({ok:true,items:await listOrderEdits(pool,req.params.companyId,req.params.orderId)});}
+  catch{res.status(503).json({ok:false,error:'No se pudo consultar el historial de cambios.'});}
+});
 
 app.post(
   "/api/company/:companyId/pedidos/:orderId/action",
