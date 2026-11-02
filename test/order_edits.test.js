@@ -22,7 +22,7 @@ test('edita solo el pedido autorizado, crea auditoría y no altera dinero',async
  assert.equal(result.changed,true);
  const order=(await pg.query("SELECT * FROM panel_orders WHERE company_id='A' AND order_id='P-1'")).rows[0];
  assert.equal(order.delivery_type,'DELIVERY');assert.equal(order.delivery_address,'Belgrano 123');
- assert.equal(order.total,2000);assert.equal(order.payment_state,'PENDIENTE');assert.equal(Number(order.delivery_cost),0);
+ assert.equal(Number(order.total),2000);assert.equal(order.payment_state,'PENDIENTE');assert.equal(Number(order.delivery_cost),0);
  assert.equal((await pg.query("SELECT delivery_type FROM panel_orders WHERE company_id='B' AND order_id='P-1'")).rows[0].delivery_type,'RETIRO');
  const history=await listOrderEdits(db,'A','P-1');
  assert.equal(history.length,1);assert.equal(history[0].operador,'Operador A');assert.equal(history[0].antes.tipoEntrega,'RETIRO');
