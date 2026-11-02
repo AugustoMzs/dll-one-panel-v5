@@ -845,6 +845,21 @@
           <div class="card table-card">
             <div class="table-head"><h3>Pedidos por completar o cobrar</h3><span id="countOrders" class="sync"></span></div>
             <div id="ordersTable" class="orders-grid"></div>
+            <dialog id="orderEditDialog" aria-labelledby="orderEditTitle" style="width:min(94vw,580px);max-height:90vh;overflow:auto;border:1px solid #d9dfe6;border-radius:14px;padding:24px;box-shadow:0 12px 35px #0003">
+              <h3 id="orderEditTitle" style="margin-top:0">Editar datos del pedido</h3>
+              <p id="orderEditIdentity" class="mini-note"></p>
+              <form id="orderEditForm" onsubmit="event.preventDefault();saveOrderDetails()">
+                <div class="form-grid">
+                  <div class="form-field"><label for="orderEditDelivery">Modalidad de entrega</label><select id="orderEditDelivery" onchange="updateOrderEditDelivery()"><option value="RETIRO">Retiro</option><option value="DELIVERY">Delivery</option></select></div>
+                  <div class="form-field full"><label for="orderEditAddress">Dirección de entrega</label><textarea id="orderEditAddress" rows="2" maxlength="500"></textarea></div>
+                  <div class="form-field full"><label for="orderEditNotes">Observaciones internas</label><textarea id="orderEditNotes" rows="3" maxlength="2000" placeholder="Notas que verá el equipo"></textarea></div>
+                </div>
+                <p class="mini-note">No modifica precios, costo de envío, pagos ni totales. Si el pedido tiene un costo de envío, primero conciliá el total antes de cambiar la modalidad. Estos cambios no envían un mensaje automático al cliente.</p>
+                <p id="orderEditStatus" role="status" aria-live="polite"></p>
+                <div class="actions-row"><button id="orderEditSave" type="submit" class="btn btn-primary">Guardar datos</button><button type="button" class="btn" onclick="closeOrderEdit()">Cerrar</button></div>
+              </form>
+              <details style="margin-top:16px"><summary>Historial de modificaciones</summary><div id="orderEditHistory" class="data-list">Sin modificaciones consultadas.</div></details>
+            </dialog>
           </div>
         </section>
 
@@ -2030,7 +2045,59 @@
     return buttons.join('');
   }
 
+  let editableOrders=new Map();
+  let orderEditSelection=null;
+  function updateOrderEditDelivery(){
+    const delivery=$('orderEditDelivery').value==='DELIVERY';
+    $('orderEditAddress').disabled=!delivery;
+    $('orderEditAddress').required=delivery;
+    if(!delivery)$('orderEditAddress').value='';
+  }
+  function closeOrderEdit(){
+    orderEditSelection=null;
+    $('orderEditDialog').close();
+  }
+  async function openOrderEditByButton(button){
+    const order=editableOrders.get(button.dataset.orderId);
+    if(!order || !order.actualizadoEl || ['EN_CAMINO','ENTREGADO','CANCELADO'].includes(String(order.estadoPedido||'').toUpperCase())){
+      showNotice('Actualizá los pedidos antes de editar.');return;
+    }
+    const selectedCompany=companyId;
+    orderEditSelection={companyId:selectedCompany,order};
+    $('orderEditIdentity').textContent=(order.idPedido||'')+' · '+(order.nombreCliente||'Cliente');
+    $('orderEditDelivery').value=String(order.tipoEntrega||'RETIRO').toUpperCase();
+    $('orderEditAddress').value=String(order.direccion||'');
+    $('orderEditNotes').value=String(order.observaciones||'');
+    updateOrderEditDelivery();
+    $('orderEditStatus').textContent='';
+    $('orderEditHistory').textContent='Consultando modificaciones…';
+    $('orderEditDialog').showModal();
+    try{
+      const r=await api('/api/company/'+encodeURIComponent(selectedCompany)+'/pedidos/'+encodeURIComponent(order.idPedido)+'/edits');
+      if(!orderEditSelection||orderEditSelection.companyId!==selectedCompany||orderEditSelection.order.idPedido!==order.idPedido)return;
+      $('orderEditHistory').innerHTML=(r.items||[]).length?(r.items||[]).map(x=>'<div class="data-row"><strong>'+esc(new Date(x.fecha).toLocaleString('es-AR'))+'</strong><div>'+esc(x.operador||'Operador')+'</div><small>Entrega: '+esc(x.antes?.tipoEntrega||'—')+' → '+esc(x.despues?.tipoEntrega||'—')+'</small><small>Dirección: '+esc(x.antes?.direccion||'—')+' → '+esc(x.despues?.direccion||'—')+'</small><small>Notas: '+esc(x.antes?.observaciones||'—')+' → '+esc(x.despues?.observaciones||'—')+'</small></div>').join(''):'<div class="empty">Todavía no hay cambios administrativos.</div>';
+    }catch{if(orderEditSelection?.order.idPedido===order.idPedido)$('orderEditHistory').textContent='No se pudo consultar el historial.';}
+  }
+  async function saveOrderDetails(){
+    const selection=orderEditSelection;
+    if(!selection)return;
+    if(companyId!==selection.companyId){$('orderEditStatus').textContent='Cambiaste de empresa. Cerrá y volvé a abrir el pedido.';return;}
+    if(!$('orderEditForm').reportValidity())return;
+    const btn=$('orderEditSave');btn.disabled=true;
+    $('orderEditStatus').textContent='Guardando…';
+    try{
+      const payload={revision:String(selection.order.actualizadoEl),tipoEntrega:$('orderEditDelivery').value,direccion:$('orderEditAddress').value,observaciones:$('orderEditNotes').value};
+      const result=await api('/api/company/'+encodeURIComponent(selection.companyId)+'/pedidos/'+encodeURIComponent(selection.order.idPedido)+'/edit',{method:'POST',body:JSON.stringify(payload)});
+      if(companyId!==selection.companyId)return;
+      $('orderEditStatus').textContent=result.changed?'Datos guardados y auditados.':'Los datos no cambiaron.';
+      await loadOrders();
+      if(result.changed)closeOrderEdit();
+    }catch(e){$('orderEditStatus').textContent='No se guardaron los cambios: '+String(e?.message||e)+'. Si otro operador editó el pedido, recargá antes de reintentar.';}
+    finally{btn.disabled=false;}
+  }
+
   function renderOrders(items){
+    editableOrders=new Map(items.map(x=>[String(x.idPedido),x]));
     const box=$('ordersTable');
     if(!items.length){
       box.innerHTML='<div class="empty">No hay pedidos activos.</div>';
@@ -2060,6 +2127,7 @@
             ${address?`<div style="grid-column:1/-1"><strong>Dirección</strong><br>${esc(address)}</div>`:''}
             ${Number(order.costoDelivery||0)>0?`<div><strong>Delivery</strong><br>$${money(order.costoDelivery)}</div>`:''}
           </div>
+          ${!['EN_CAMINO','ENTREGADO','CANCELADO'].includes(state)?'<div class="order-actions"><button class="soft" data-order-id="'+esc(order.idPedido)+'" onclick="openOrderEditByButton(this)">Editar entrega y notas</button></div>':''}
           <div class="order-actions">${orderButtons(order)}</div>
         </article>
       `;
@@ -2084,7 +2152,9 @@
   }
 
   async function loadOrders(){
-    const r=await api(`/api/company/${encodeURIComponent(companyId)}/pedidos?filter=PENDIENTES`);
+    const requestedCompany=companyId;
+    const r=await api(`/api/company/${encodeURIComponent(requestedCompany)}/pedidos?filter=PENDIENTES`);
+    if(requestedCompany!==companyId)return;
     $('countOrders').textContent=(r.total||0)+' pendientes';
     renderOrders(r.items||[]);
   }
