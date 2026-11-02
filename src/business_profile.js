@@ -4,11 +4,17 @@ export async function initBusinessProfiles(db){
  await db.query(`CREATE TABLE IF NOT EXISTS panel_business_profiles(company_id TEXT PRIMARY KEY, config JSONB NOT NULL DEFAULT '{}', modules JSONB, phone_number_id TEXT, revision INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
 }
 const fields=['NOMBRE_EMPRESA','TIPO_NEGOCIO','TELEFONO','DIRECCION','EMAIL'];
+// Preferencias comerciales de cada empresa. Por defecto conserva la conducta anterior.
+const interactionFields={MENSAJE_BIENVENIDA:350,MENSAJE_DERIVACION_HUMANA:350};
+const enabledFlag=value=>value===true||['SI','TRUE','1'].includes(String(value??'').toUpperCase());
 export async function getBusinessProfile(db,company){
  const saved=(await db.query('SELECT * FROM panel_business_profiles WHERE company_id=$1',[company.company_id])).rows[0];
  const config={...company.config,...saved?.config};
  const pickup=await getPickup(db,company);config.DIRECCION=pickup.address;
- return {empresa:{idEmpresa:company.company_id,nombreEmpresa:config.NOMBRE_EMPRESA||company.company_name,phoneNumberId:saved?.phone_number_id??company.phone_number_id,tipoNegocio:config.TIPO_NEGOCIO||'MIXTO'},config:Object.fromEntries(fields.map(k=>[k,String(config[k]||'')])),modulos:saved?.modules??company.modules,revision:saved?.revision??0,source:'POSTGRES_DIRECT'};
+ return {empresa:{idEmpresa:company.company_id,nombreEmpresa:config.NOMBRE_EMPRESA||company.company_name,phoneNumberId:saved?.phone_number_id??company.phone_number_id,tipoNegocio:config.TIPO_NEGOCIO||'MIXTO'},config:{...Object.fromEntries(fields.map(k=>[k,String(config[k]||'')])),
+   ...Object.fromEntries(Object.keys(interactionFields).map(k=>[k,String(config[k]||'')])),
+   PEDIR_NOMBRE_CLIENTE:enabledFlag(config.PEDIR_NOMBRE_CLIENTE)
+  },modulos:saved?.modules??company.modules,revision:saved?.revision??0,source:'POSTGRES_DIRECT'};
 }
 export async function saveBusinessProfile(db,companyId,data,allowModules){
  const client=await db.connect();
@@ -24,6 +30,14 @@ export async function saveBusinessProfile(db,companyId,data,allowModules){
   for(const field of fields)if(Object.hasOwn(data,field)){
    if(typeof data[field]!=='string'||data[field].length>2000)throw new Error('Valor inválido: '+field);
    config[field]=data[field].trim();
+  }
+  for(const [field,max] of Object.entries(interactionFields))if(Object.hasOwn(data,field)){
+    if(typeof data[field]!=='string'||data[field].length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(data[field]))throw Error('Texto inválido: '+field);
+    config[field]=data[field].trim();
+  }
+  if(Object.hasOwn(data,'PEDIR_NOMBRE_CLIENTE')){
+    if(typeof data.PEDIR_NOMBRE_CLIENTE!=='boolean')throw Error('La solicitud de nombre debe ser SI o NO.');
+    config.PEDIR_NOMBRE_CLIENTE=data.PEDIR_NOMBRE_CLIENTE;
   }
   if(!String(config.NOMBRE_EMPRESA||company.company_name).trim())throw new Error('Ingresá el nombre comercial.');
   if(config.EMAIL&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.EMAIL))throw new Error('Email inválido.');
