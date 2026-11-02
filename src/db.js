@@ -7,6 +7,7 @@ import {initGastroSettings} from "./gastro_settings.js";
 import {initGastroCatalog} from "./gastro_catalog.js";
 import {initReceipts} from "./receipts.js";
 import {initNotifications} from "./notifications.js";
+import {initOrderEdits} from './order_edits.js';
 import pg from "pg";
 
 const { Pool } = pg;
@@ -185,6 +186,8 @@ export async function initDb() {
       UNIQUE (company_id, order_id)
     )
   `);
+
+  await initOrderEdits(pool);
 
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_orders_source_wamid
