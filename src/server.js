@@ -1413,7 +1413,9 @@ app.use(
 app.get('/api/company/:companyId/commercial/followups',authRequired,companyAccessRequired,async(req,res)=>{
   res.set('Cache-Control','no-store');
   try{
-    const result=await listCommercialFollowups(pool,req.params.companyId,String(req.query.filter||'PENDIENTES'));
+    const offsetText=String(req.query.offset??'0');
+    if(!/^(0|[1-9][0-9]{0,6})$/.test(offsetText))return res.status(400).json({ok:false,error:'Página inválida.'});
+    const result=await listCommercialFollowups(pool,req.params.companyId,String(req.query.filter||'PENDIENTES'),Number(offsetText));
     res.json({ok:true,...result});
   }catch(e){res.status(400).json({ok:false,error:String(e.message||e)});}
 });

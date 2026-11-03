@@ -92,3 +92,31 @@ test('el JavaScript principal incrustado en el panel compila',async()=>{
  assert.equal(scripts.length,1);
  assert.doesNotThrow(()=>new Script(scripts[0][1],{filename:'public/index.html'}));
 });
+
+test('100 registros por página, orden estable y conteo total por empresa',async()=>{
+ const {pg,db}=await setup();
+ try{
+   await pg.exec("INSERT INTO panel_commercial_followups(id,company_id,customer_name,subject,state,notes) SELECT 'bulk-'||g::text,'A','Cliente '||g::text,'Presupuesto','ABIERTA','' FROM generate_series(1,105) g");
+   await createCommercialFollowup(db,'B',input('B'),'operador');
+   const first=await listCommercialFollowups(db,'A','PENDIENTES',0);
+   const second=await listCommercialFollowups(db,'A','PENDIENTES',100);
+   assert.equal(first.total,105);assert.equal(first.limit,100);assert.equal(first.offset,0);
+   assert.equal(first.items.length,100);
+   assert.equal(second.total,105);assert.equal(second.items.length,5);assert.equal(second.offset,100);
+   const ids=new Set([...first.items,...second.items].map(x=>x.id));
+   assert.equal(ids.size,105);
+   assert.equal((await listCommercialFollowups(db,'B','PENDIENTES',0)).total,1);
+   await assert.rejects(listCommercialFollowups(db,'A','PENDIENTES',-100),/Página inválida/);
+   await assert.rejects(listCommercialFollowups(db,'A','PENDIENTES','100'),/Página inválida/);
+ }finally{await pg.close();}
+});
+test('la interfaz puede avanzar, retroceder, cambiar filtros y descartar páginas antiguas',()=>{
+ const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
+ assert.match(html,/id="commercialPrevious"/);
+ assert.match(html,/id="commercialNext"/);
+ assert.match(html,/function commercialChangePage/);
+ assert.match(html,/offset!==commercialOffset/);
+ assert.match(html,/commercialOffset=0;loadCommercialFollowups/);
+ assert.match(source,/listCommercialFollowups\(pool,req\.params\.companyId,String\(req\.query\.filter\|\|'PENDIENTES'\),Number\(offsetText\)\)/);
+});

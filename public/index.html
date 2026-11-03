@@ -907,8 +907,13 @@
           </div>
           <div class="card table-card">
             <div class="table-head"><h3>Oportunidades</h3><span id="commercialCount" class="sync"></span></div>
-            <div class="actions-row"><label for="commercialFilter">Mostrar</label><select id="commercialFilter" onchange="loadCommercialFollowups()"><option value="PENDIENTES">Pendientes</option><option value="TODOS">Todas</option><option value="GANADA">Ganadas</option><option value="PERDIDA">Perdidas</option></select></div>
+            <div class="actions-row"><label for="commercialFilter">Mostrar</label><select id="commercialFilter" onchange="commercialOffset=0;loadCommercialFollowups()"><option value="PENDIENTES">Pendientes</option><option value="TODOS">Todas</option><option value="GANADA">Ganadas</option><option value="PERDIDA">Perdidas</option></select></div>
             <div id="commercialTable" class="orders-grid"></div>
+            <div class="actions-row" style="justify-content:space-between">
+              <button id="commercialPrevious" type="button" class="btn" onclick="commercialChangePage(-1)">Anterior</button>
+              <span id="commercialPageStatus" class="sync" aria-live="polite"></span>
+              <button id="commercialNext" type="button" class="btn" onclick="commercialChangePage(1)">Siguiente</button>
+            </div>
           </div>
         </section>
 
@@ -1570,6 +1575,7 @@
 
   async function changeCompany(){
     companyId=$('companySelect').value;
+    commercialOffset=0;commercialItems.clear();
     salesRevision=null;catalogItems=[];clearCatalogForm();
     resetSalesTools();
     resetDeliveryView();
@@ -2187,6 +2193,13 @@
 
 
   let commercialItems=new Map();
+  let commercialOffset=0;
+  function commercialChangePage(dir){
+    const next=commercialOffset+(dir<0?-100:100);
+    if(next<0)return;
+    commercialOffset=next;
+    loadCommercialFollowups().catch(e=>showNotice(String(e.message||e)));
+  }
   function commercialLocalTime(value){
     if(!value)return '';
     const d=new Date(value);
@@ -2219,6 +2232,7 @@
       await api('/api/company/'+encodeURIComponent(requestedCompany)+'/commercial/followups',{method:'POST',body:JSON.stringify(payload)});
       if(requestedCompany!==companyId)return;
       $('commercialForm').reset();
+      commercialOffset=0;
       $('commercialStatus').textContent='Oportunidad guardada.';
       await loadCommercialFollowups();
     }catch(e){$('commercialStatus').textContent=e.message||String(e);}
@@ -2226,11 +2240,15 @@
   }
   async function loadCommercialFollowups(){
     const cid=companyId;
-    const filter=$('commercialFilter').value;
-    const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups?filter='+encodeURIComponent(filter));
-    if(cid!==companyId||filter!==$('commercialFilter').value)return;
+    const filter=$('commercialFilter').value,offset=commercialOffset;
+    const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups?filter='+encodeURIComponent(filter)+'&offset='+offset);
+    if(cid!==companyId||filter!==$('commercialFilter').value||offset!==commercialOffset)return;
+    if(r.total>0&&offset>=r.total){commercialOffset=Math.floor((r.total-1)/100)*100;return loadCommercialFollowups();}
     commercialItems=new Map((r.items||[]).map(o=>[String(o.id),o]));
-    $('commercialCount').textContent=String(r.total||0)+' oportunidades'+(r.total>r.limit?' (primeras '+r.limit+')':'');
+    $('commercialCount').textContent=String(r.total||0)+' oportunidades';
+    $('commercialPageStatus').textContent=r.total?(offset+1)+'–'+(offset+r.items.length)+' de '+r.total:'Sin resultados';
+    $('commercialPrevious').disabled=offset<=0;
+    $('commercialNext').disabled=offset+r.items.length>=r.total;
     $('commercialTable').innerHTML=(r.items||[]).length?(r.items||[]).map(o=>{
       const states=['ABIERTA','CONTACTAR','EN_ESPERA','GANADA','PERDIDA'];
       const select='<select class="commercial-state" aria-label="Estado comercial">'+states.map(v=>'<option value="'+v+'"'+(o.estado===v?' selected':'')+'>'+v.replaceAll('_',' ')+'</option>').join('')+'</select>';

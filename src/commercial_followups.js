@@ -34,16 +34,20 @@ export async function initCommercialFollowups(db){
  await db.query("CREATE TABLE IF NOT EXISTS panel_commercial_followup_audit (id TEXT PRIMARY KEY,company_id TEXT NOT NULL,followup_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,before_data JSONB,after_data JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
  await db.query("CREATE INDEX IF NOT EXISTS idx_panel_commercial_followup_audit_tenant ON panel_commercial_followup_audit(company_id,followup_id,created_at DESC)");
 }
-export async function listCommercialFollowups(db,companyId,filter='PENDIENTES'){
+export async function listCommercialFollowups(db,companyId,filter='PENDIENTES',offset=0){
  const cid=text(companyId,120,'empresa',{required:true});
  if(!['PENDIENTES','TODOS','GANADA','PERDIDA'].includes(filter))throw Error('Filtro inválido.');
+ if(!Number.isSafeInteger(offset)||offset<0||offset>1000000)throw Error('Página inválida.');
  const where=filter==='PENDIENTES'?"AND state IN ('ABIERTA','CONTACTAR','EN_ESPERA')":filter==='TODOS'?'':'AND state=$2';
  const params=filter==='PENDIENTES'||filter==='TODOS'?[cid]:[cid,filter];
+ const selectionParams=[...params,offset];
+ const offsetParam='$'+selectionParams.length;
  const [result,total]=await Promise.all([
-  db.query("SELECT * FROM panel_commercial_followups WHERE company_id=$1 "+where+" ORDER BY followup_at ASC NULLS LAST,created_at DESC LIMIT 100",params),
+  db.query("SELECT * FROM panel_commercial_followups WHERE company_id=$1 "+where+
+    " ORDER BY followup_at ASC NULLS LAST,created_at DESC,id ASC LIMIT 100 OFFSET "+offsetParam,selectionParams),
   db.query("SELECT COUNT(*)::int AS n FROM panel_commercial_followups WHERE company_id=$1 "+where,params)
  ]);
- return {items:result.rows.map(normalize),total:Number(total.rows[0]?.n||0),limit:100};
+ return {items:result.rows.map(normalize),total:Number(total.rows[0]?.n||0),limit:100,offset};
 }
 export async function createCommercialFollowup(db,companyId,input,actor){
  const cid=text(companyId,120,'empresa',{required:true}),operator=text(actor,200,'operador',{required:true});
