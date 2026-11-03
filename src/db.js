@@ -7,6 +7,7 @@ import {initGastroSettings} from "./gastro_settings.js";
 import {initGastroCatalog} from "./gastro_catalog.js";
 import {initReceipts} from "./receipts.js";
 import {initNotifications} from "./notifications.js";
+import {initLoginThrottle} from './login_throttle.js';
 import {initOrderActions,transitionOrder} from './order_actions.js';
 import {initOrderEdits} from './order_edits.js';
 import pg from "pg";
@@ -38,6 +39,7 @@ export async function initDb() {
   await initGastroSettings(pool);
   await initReceipts(pool);
   await initNotifications(pool);
+  await initLoginThrottle(pool);
   // Configuración de retiro independiente de los snapshots de Apps Script.
   await pool.query(`CREATE TABLE IF NOT EXISTS panel_pickup_settings (
     company_id TEXT PRIMARY KEY,
