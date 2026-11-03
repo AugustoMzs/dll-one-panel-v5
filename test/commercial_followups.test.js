@@ -84,3 +84,11 @@ test('API exige permisos, interfaz escapa contenido y no envía WhatsApp automá
  assert.match(html,/esc\(o\.nombre\)/);
  assert.doesNotMatch(server,/commercial\/followups[\s\S]{0,500}postMotor\(/);
 });
+
+test('el JavaScript principal incrustado en el panel compila',async()=>{
+ const {Script}=await import('node:vm');
+ const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+ const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+ assert.equal(scripts.length,1);
+ assert.doesNotThrow(()=>new Script(scripts[0][1],{filename:'public/index.html'}));
+});
