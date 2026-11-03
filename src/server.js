@@ -5,6 +5,7 @@ import {initSalesTools} from './sales_tools.js';
 import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
+import {loginThrottleKey,consumeLoginAttempt,clearLoginAttempts} from './login_throttle.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
 import {listOrderActions} from './order_actions.js';
 import {eventsChat} from './events_chat.js';
@@ -931,8 +932,16 @@ app.post("/sync/company", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const user = String(req.body?.user || "");
   const password = String(req.body?.password || "");
-
+  res.set('Cache-Control','no-store');
   try {
+    // req.ip proviene del socket remoto por defecto; no confiar en headers IP enviados por clientes.
+    // El hash del par usuario/origen evita guardar el login y la IP en la tabla.
+    const attemptKey=loginThrottleKey(user,req.ip);
+    const throttle=await consumeLoginAttempt(pool,attemptKey);
+    if(!throttle.allowed){
+      res.set('Retry-After',String(throttle.retryAfterSeconds));
+      return res.status(429).json({ok:false,error:'Demasiados intentos. Volvé a intentar más tarde.'});
+    }
     const sessionUser = await validLogin(user, password);
 
     if (!sessionUser) {
@@ -941,7 +950,7 @@ app.post("/api/login", async (req, res) => {
         error: "Usuario o contraseña incorrectos."
       });
     }
-
+    await clearLoginAttempts(pool,attemptKey);
     issueSession(res, sessionUser);
 
     return res.json({
@@ -951,9 +960,10 @@ app.post("/api/login", async (req, res) => {
       role: sessionUser.role
     });
   } catch (err) {
-    return res.status(500).json({
+    console.warn('[AUTH] No fue posible completar el login:',err?.code||'TEMPORARY');
+    return res.status(503).json({
       ok: false,
-      error: String(err?.message || err)
+      error: 'No se pudo completar el acceso. Intentá nuevamente en unos minutos.'
     });
   }
 });
