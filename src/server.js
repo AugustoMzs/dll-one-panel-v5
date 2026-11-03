@@ -5,7 +5,7 @@ import {initSalesTools} from './sales_tools.js';
 import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
-import {listCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,commercialFollowupHistory} from './commercial_followups.js';
+import {listCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,commercialFollowupHistory,getCommercialReminders} from './commercial_followups.js';
 import {loginThrottleKey,consumeLoginAttempt,clearLoginAttempts} from './login_throttle.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
 import {listOrderActions} from './order_actions.js';
@@ -1409,6 +1409,12 @@ app.use(
   requireConfiguredModule(getCompany)
 );
 
+
+app.get('/api/company/:companyId/commercial/reminders',authRequired,companyAccessRequired,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{res.json({ok:true,reminders:await getCommercialReminders(pool,req.params.companyId)});}
+  catch{res.status(503).json({ok:false,error:'No se pudieron consultar los recordatorios.'});}
+});
 
 app.get('/api/company/:companyId/commercial/followups',authRequired,companyAccessRequired,async(req,res)=>{
   res.set('Cache-Control','no-store');
