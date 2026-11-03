@@ -17,7 +17,7 @@ export function allowedOrderAction(row, action) {
   const payment=normalize(row?.payment_state);
   const delivery=normalize(row?.delivery_type);
   const act=normalize(action);
-  if (act==='CONFIRMAR_PAGO') return state!=='CANCELADO' && payment!=='RECHAZADO';
+  if (act==='CONFIRMAR_PAGO') return state!=='CANCELADO';
   if (act==='RECHAZAR_PAGO') return ['ESPERANDO_PAGO','PENDIENTE_PREPARACION'].includes(state) && ['PENDIENTE','COMPROBANTE_RECIBIDO','RECHAZADO'].includes(payment);
   if (act==='PENDIENTE_PREPARACION') return ['ESPERANDO_PAGO','PENDIENTE_PREPARACION'].includes(state);
   if (act==='PREPARANDO') return state==='PENDIENTE_PREPARACION';
