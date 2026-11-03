@@ -3,6 +3,7 @@ import {initSalesCatalog} from './sales_catalog.js';
 import {initOrderHours} from "./order_hours.js";
 import {initMotorSnapshot} from "./motor_snapshot.js";
 import {initBusinessProfiles} from "./business_profile.js";
+import {initCommercialFollowups} from './commercial_followups.js';
 import {initGastroSettings} from "./gastro_settings.js";
 import {initGastroCatalog} from "./gastro_catalog.js";
 import {initReceipts} from "./receipts.js";
@@ -34,6 +35,7 @@ export async function initDb() {
   await initSalesCatalog(pool);
   await initOrderHours(pool);
   await initBusinessProfiles(pool);
+  await initCommercialFollowups(pool);
   await initMotorSnapshot(pool);
   await initGastroCatalog(pool);
   await initGastroSettings(pool);

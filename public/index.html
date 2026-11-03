@@ -730,6 +730,7 @@
         <button data-tab="delivery" onclick="go('delivery',this)">🚚 Delivery<span class="notice-badge" data-notice="delivery" hidden></span></button>
         <button data-tab="receipts" onclick="go('receipts',this)">📎 Comprobantes <span class="notice-badge" data-notice="receipts" hidden></span></button>
         <button data-tab="customers" onclick="go('customers',this)">👥 Clientes</button>
+        <button data-tab="commercial" onclick="go('commercial',this)">📋 Seguimiento comercial</button>
         <button data-tab="business" onclick="go('business',this)">🏢 Mi negocio</button>
         <button class="admin-only hidden-admin" data-tab="products" onclick="go('products')">▦ Categorías ONE</button>
         <button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)">💲 ONE Ventas</button>
@@ -885,6 +886,29 @@
           <div class="card table-card">
             <div class="table-head"><h3>Clientes</h3><span id="countCustomers" class="sync"></span></div>
             <div id="customersTable" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <section id="commercial" class="section">
+          <div class="hero"><div><h1>Seguimiento comercial</h1><p>Organizá oportunidades y presupuestos pendientes por empresa, con próximos contactos y control de estados. No se envían mensajes automáticos.</p></div></div>
+          <div class="card">
+            <h3 class="card-title">Nueva oportunidad</h3>
+            <form id="commercialForm" onsubmit="event.preventDefault();saveCommercialFollowup()">
+              <div class="form-grid">
+                <div class="form-field"><label for="commercialName">Cliente</label><input id="commercialName" maxlength="200" required placeholder="Nombre del cliente"></div>
+                <div class="form-field"><label for="commercialClientId">Identificador del cliente (opcional)</label><input id="commercialClientId" maxlength="120" placeholder="ID o WhatsApp"></div>
+                <div class="form-field full"><label for="commercialSubject">Asunto / presupuesto</label><input id="commercialSubject" maxlength="250" required placeholder="Ej.: Cotización de instalación"></div>
+                <div class="form-field"><label for="commercialAmount">Importe estimado (opcional)</label><input id="commercialAmount" type="number" min="0" max="999999999999.99" step="0.01" placeholder="0,00"></div>
+                <div class="form-field"><label for="commercialDate">Próximo seguimiento</label><input id="commercialDate" type="datetime-local"></div>
+                <div class="form-field full"><label for="commercialNotes">Observaciones internas</label><textarea id="commercialNotes" maxlength="1500" rows="2" placeholder="Qué necesita el cliente"></textarea></div>
+              </div>
+              <div class="actions-row"><button id="commercialSubmit" class="btn btn-primary" type="submit">Guardar oportunidad</button><span id="commercialStatus" role="status"></span></div>
+            </form>
+          </div>
+          <div class="card table-card">
+            <div class="table-head"><h3>Oportunidades</h3><span id="commercialCount" class="sync"></span></div>
+            <div class="actions-row"><label for="commercialFilter">Mostrar</label><select id="commercialFilter" onchange="loadCommercialFollowups()"><option value="PENDIENTES">Pendientes</option><option value="TODOS">Todas</option><option value="GANADA">Ganadas</option><option value="PERDIDA">Perdidas</option></select></div>
+            <div id="commercialTable" class="orders-grid"></div>
           </div>
         </section>
 
@@ -1587,7 +1611,7 @@
 
   async function loadTab(tab){
     if(resolveModuleTab(tab)!==tab)return go(resolveModuleTab(tab));
-    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','receipts','business','catalog','gastro','health','events']);
+    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','commercial','receipts','business','catalog','gastro','health','events']);
     if(companyTabs.has(tab)&&!companyId){
       if(String(currentUser?.role||'').toUpperCase()==='SUPERADMIN'){
         await go('admin');
@@ -1604,6 +1628,7 @@
       if(tab==='orders')await loadOrders();
       if(tab==='delivery')await loadDelivery();
       if(tab==='customers')await loadCustomers();
+      if(tab==='commercial')await loadCommercialFollowups();
       if(tab==='receipts')await loadReceipts();
       if(tab==='business')await Promise.all([loadBusiness(),loadOrderHours(),loadBotInstructions(),loadPayments(),loadBusinessAdmin()]);
       if(tab==='catalog')await loadCatalog();
@@ -2158,6 +2183,98 @@
 
     await loadOrders();
     pollNotifications();
+  }
+
+
+  let commercialItems=new Map();
+  function commercialLocalTime(value){
+    if(!value)return '';
+    const d=new Date(value);
+    if(!Number.isFinite(d.getTime()))return '';
+    return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
+  function commercialIsoDate(value){
+    if(!value)return null;
+    const d=new Date(value);
+    if(!Number.isFinite(d.getTime()))throw Error('Fecha inválida.');
+    return d.toISOString();
+  }
+  async function saveCommercialFollowup(){
+    const requestedCompany=companyId;
+    if(!requestedCompany)throw Error('Seleccioná una empresa.');
+    const btn=$('commercialSubmit');
+    btn.disabled=true;
+    $('commercialStatus').textContent='Guardando…';
+    try{
+      const amountText=$('commercialAmount').value.trim();
+      if(amountText && !/^[0-9]{1,12}(\.[0-9]{1,2})?$/.test(amountText))throw Error('Importe inválido: usá hasta dos decimales.');
+      const payload={
+        nombre:$('commercialName').value.trim(),
+        clienteId:$('commercialClientId').value.trim(),
+        asunto:$('commercialSubject').value.trim(),
+        importe:amountText===''?null:Number(amountText),
+        seguimientoEl:commercialIsoDate($('commercialDate').value),
+        observaciones:$('commercialNotes').value.trim()
+      };
+      await api('/api/company/'+encodeURIComponent(requestedCompany)+'/commercial/followups',{method:'POST',body:JSON.stringify(payload)});
+      if(requestedCompany!==companyId)return;
+      $('commercialForm').reset();
+      $('commercialStatus').textContent='Oportunidad guardada.';
+      await loadCommercialFollowups();
+    }catch(e){$('commercialStatus').textContent=e.message||String(e);}
+    finally{btn.disabled=false;}
+  }
+  async function loadCommercialFollowups(){
+    const cid=companyId;
+    const filter=$('commercialFilter').value;
+    const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups?filter='+encodeURIComponent(filter));
+    if(cid!==companyId||filter!==$('commercialFilter').value)return;
+    commercialItems=new Map((r.items||[]).map(o=>[String(o.id),o]));
+    $('commercialCount').textContent=String(r.total||0)+' oportunidades'+(r.total>r.limit?' (primeras '+r.limit+')':'');
+    $('commercialTable').innerHTML=(r.items||[]).length?(r.items||[]).map(o=>{
+      const states=['ABIERTA','CONTACTAR','EN_ESPERA','GANADA','PERDIDA'];
+      const select='<select class="commercial-state" aria-label="Estado comercial">'+states.map(v=>'<option value="'+v+'"'+(o.estado===v?' selected':'')+'>'+v.replaceAll('_',' ')+'</option>').join('')+'</select>';
+      const amount=o.importe===null?'Sin importe':'$'+Number(o.importe).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+      return '<article class="order-card" data-followup-id="'+esc(o.id)+'">'+
+        '<div class="order-card-head"><div><div class="order-id">'+esc(o.asunto)+'</div><div class="order-client">'+esc(o.nombre)+'</div></div><span class="status-chip">'+esc(o.estado)+'</span></div>'+
+        '<div class="order-meta"><div><strong>Importe estimado</strong><br>'+esc(amount)+'</div><div><strong>Contacto</strong><br>'+esc(o.clienteId||'—')+'</div></div>'+
+        '<div class="form-field"><label>Próximo contacto</label><input class="commercial-next" type="datetime-local" value="'+esc(commercialLocalTime(o.seguimientoEl))+'"></div>'+
+        '<div class="form-field"><label>Observaciones</label><textarea class="commercial-notes" rows="2" maxlength="1500">'+esc(o.observaciones||'')+'</textarea></div>'+
+        '<div class="order-actions">'+select+'<button class="soft" onclick="updateCommercialFromButton(this)">Guardar cambios</button>'+
+        '<button class="soft" onclick="loadCommercialHistory(this)">Ver historial</button></div>'+
+        '<div class="commercial-history"></div></article>';
+    }).join(''):'<div class="empty">No hay oportunidades en este filtro.</div>';
+  }
+  async function updateCommercialFromButton(btn){
+    const card=btn.closest('[data-followup-id]');
+    const id=card?.dataset.followupId,item=commercialItems.get(id),cid=companyId;
+    if(!item)return;
+    btn.disabled=true;
+    try{
+      const payload={revision:item.revision,estado:card.querySelector('.commercial-state').value,
+        observaciones:card.querySelector('.commercial-notes').value,
+        seguimientoEl:commercialIsoDate(card.querySelector('.commercial-next').value)};
+      const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups/'+encodeURIComponent(id),
+        {method:'PATCH',body:JSON.stringify(payload)});
+      if(cid!==companyId)return;
+      showNotice(r.changed?'Seguimiento actualizado.':'No había cambios.');
+      await loadCommercialFollowups();
+    }catch(e){showNotice('No se guardaron los cambios: '+String(e.message||e)+' Recargá si otra persona editó la oportunidad.');}
+    finally{btn.disabled=false;}
+  }
+  async function loadCommercialHistory(btn){
+    const card=btn.closest('[data-followup-id]'),cid=companyId,id=card?.dataset.followupId;
+    if(!card||!id)return;
+    const target=card.querySelector('.commercial-history');
+    target.textContent='Cargando historial…';
+    try{
+      const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups/'+encodeURIComponent(id)+'/history');
+      if(cid!==companyId||!card.isConnected)return;
+      target.innerHTML=(r.items||[]).length?r.items.map(x=>'<div class="mini-note">'+
+        esc(new Date(x.fecha).toLocaleString('es-AR'))+' · '+esc(x.operador)+' · '+esc(x.accion)+
+        ' · '+esc(x.antes?.estado||'—')+' → '+esc(x.despues?.estado||'—')+'</div>').join(''):
+        '<div class="mini-note">Sin cambios anteriores.</div>';
+    }catch{target.textContent='No se pudo cargar el historial.';}
   }
 
   async function loadOrders(){
