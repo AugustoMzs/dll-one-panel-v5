@@ -1087,7 +1087,13 @@ export async function updateDirectOrderAction(
   notes = ""
 ) {
   const result=await transitionOrder(pool,companyId,orderId,action,operator,notes);
-  return {...result,order:normalizeOrderRow(result.row),row:undefined};
+  return {
+    ok:result.ok,
+    changed:result.changed,
+    action:result.action,
+    operator:result.operator,
+    order:normalizeOrderRow(result.row)
+  };
 }
 
 function normalizeQuoteRow(row) {
