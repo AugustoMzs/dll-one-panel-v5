@@ -93,3 +93,13 @@ test('la notificación ocurre fuera de la transacción y no se duplica la edici�
  assert.match(server,/if \(result.changed\)/);
  assert.doesNotMatch(server,/if\(result.changed && \['CONFIRMAR_PAGO'/);
 });
+
+test('el historial de estados está protegido por empresa y escapa datos de auditoría',()=>{
+ const server=readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
+ const ui=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+ assert.match(server,/pedidos\/:orderId\/action-history'[\s\S]{0,70}authRequired, companyAccessRequired/);
+ assert.match(ui,/id="orderActionHistory"/);
+ assert.match(ui,/api\(base\+'\/action-history'\)/);
+ assert.match(ui,/esc\(x\.operador\|\|'Operador'\)/);
+ assert.match(ui,/esc\(x\.antes\?\.estadoPedido\|\|'—'\)/);
+});
