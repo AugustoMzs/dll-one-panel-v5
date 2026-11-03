@@ -16,7 +16,7 @@ function nextDate(v){
 }
 function money(value){
  if(value===null||value===''||value===undefined)return null;
- if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>999999999999.99||Math.round(value*100)!==value*100)throw Error('Importe inválido.');
+ if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>999999999999.99||!/^[0-9]{1,12}(?:\.[0-9]{1,2})?$/.test(String(value)))throw Error('Importe inválido.');
  return value;
 }
 const cleanState=s=>{
