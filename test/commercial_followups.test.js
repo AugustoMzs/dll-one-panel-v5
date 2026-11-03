@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {initCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,listCommercialFollowups,commercialFollowupHistory} from '../src/commercial_followups.js';
+import {initCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,listCommercialFollowups,commercialFollowupHistory,getCommercialReminders} from '../src/commercial_followups.js';
 
 async function setup(){
   const pg=new PGlite();
@@ -119,4 +119,61 @@ test('la interfaz puede avanzar, retroceder, cambiar filtros y descartar página
  assert.match(html,/offset!==commercialOffset/);
  assert.match(html,/commercialOffset=0;loadCommercialFollowups/);
  assert.match(source,/listCommercialFollowups\(pool,req\.params\.companyId,String\(req\.query\.filter\|\|'PENDIENTES'\),Number\(offsetText\)\)/);
+});
+
+
+test('vencimientos y recordatorios internos se calculan por empresa y con el estado vigente',async()=>{
+ const {pg,db}=await setup();
+ const days=n=>new Date(Date.now()+n*86400000).toISOString();
+ try{
+  const overdue=await createCommercialFollowup(db,'A',{...input('Caducado'),seguimientoEl:days(-1),venceEl:days(-0.5)},'operador-A');
+  const upcoming=await createCommercialFollowup(db,'A',{...input('Por vencer'),seguimientoEl:days(0.25),venceEl:days(0.5)},'operador-A');
+  const none=await createCommercialFollowup(db,'A',{...input('Sin vencimiento'),seguimientoEl:null,venceEl:null},'operador-A');
+  await createCommercialFollowup(db,'B',{...input('Solo B'),seguimientoEl:days(-1),venceEl:days(-1)},'operador-B');
+  assert.equal(none.venceEl,null);
+  assert.ok(overdue.venceEl);
+  const a=await getCommercialReminders(db,'A');
+  assert.deepEqual(a,{seguimientosAtrasados:1,seguimientosProximos48h:1,presupuestosVencidos:1,presupuestosPorVencer48h:1});
+  assert.deepEqual(await getCommercialReminders(db,'B'),{seguimientosAtrasados:1,seguimientosProximos48h:0,presupuestosVencidos:1,presupuestosPorVencer48h:0});
+  assert.equal((await listCommercialFollowups(db,'A','SEGUIMIENTOS_ATRASADOS')).items[0].id,overdue.id);
+  assert.equal((await listCommercialFollowups(db,'A','PRESUPUESTOS_VENCIDOS')).items[0].id,overdue.id);
+  assert.equal((await listCommercialFollowups(db,'A','POR_VENCER')).items[0].id,upcoming.id);
+  const edited=await updateCommercialFollowup(db,'A',overdue.id,{revision:0,venceEl:days(5),seguimientoEl:null},'operador-A');
+  assert.equal(edited.item.revision,1);
+  assert.equal(edited.item.seguimientoEl,null);
+  assert.equal((await getCommercialReminders(db,'A')).presupuestosVencidos,0);
+  await assert.rejects(updateCommercialFollowup(db,'A',overdue.id,{revision:0,venceEl:null},'operador-B'),/modificó/);
+  assert.equal((await commercialFollowupHistory(db,'A',overdue.id)).length,2);
+  await updateCommercialFollowup(db,'A',upcoming.id,{revision:0,estado:'GANADA'},'operador-A');
+  assert.equal((await getCommercialReminders(db,'A')).presupuestosPorVencer48h,0);
+  assert.equal((await getCommercialReminders(db,'B')).presupuestosVencidos,1);
+ }finally{await pg.close();}
+});
+test('vencimiento inválido nunca modifica oportunidad ni auditoría',async()=>{
+ const {pg,db}=await setup();
+ try{
+  await assert.rejects(createCommercialFollowup(db,'A',{...input(),venceEl:'no-fecha'},'operador'),/Fecha de vencimiento inválida/);
+  await assert.rejects(createCommercialFollowup(db,'A',{...input(),venceEl:new Date(Date.now()+3*365*86400000).toISOString()},'operador'),/fuera de rango/);
+  const a=await createCommercialFollowup(db,'A',{...input(),venceEl:null},'operador');
+  await assert.rejects(updateCommercialFollowup(db,'A',a.id,{revision:0,venceEl:'incorrecto'},'operador'),/Fecha de vencimiento inválida/);
+  await assert.rejects(updateCommercialFollowup(db,'B',a.id,{revision:0,venceEl:null},'operador'),/no encontrada/);
+  assert.equal((await commercialFollowupHistory(db,'A',a.id)).length,1);
+  assert.equal((await listCommercialFollowups(db,'A','TODOS')).total,1);
+ }finally{await pg.close();}
+});
+test('el panel muestra vencimientos reales, alertas aisladas y no envía WhatsApp',async()=>{
+ const {Script}=await import('node:vm');
+ const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+ const server=readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
+ assert.match(html,/id="commercialExpiry"/);
+ assert.match(html,/class="commercial-expiry"/);
+ assert.match(html,/id="commercialOverdue"/);
+ assert.match(html,/id="commercialExpired"/);
+ assert.match(html,/id="commercialExpiring"/);
+ assert.match(html,/offset!==commercialOffset/);
+ assert.match(server,/commercial\/reminders',authRequired,companyAccessRequired/);
+ assert.doesNotMatch(server,/commercial\/reminders[\s\S]{0,500}postMotor\(/);
+ const script=html.match(/<script>([\s\S]*?)<\/script>/);
+ assert.ok(script);
+ assert.doesNotThrow(()=>new Script(script[1]));
 });
