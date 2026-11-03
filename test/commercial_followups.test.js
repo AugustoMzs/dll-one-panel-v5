@@ -177,3 +177,39 @@ test('el panel muestra vencimientos reales, alertas aisladas y no envía WhatsAp
  assert.ok(script);
  assert.doesNotThrow(()=>new Script(script[1]));
 });
+
+test('vigencia por empresa se aplica únicamente a presupuestos nuevos y no sobreescribe fecha explícita',async()=>{
+ const {pg,db}=await setup();
+ try{
+  await pg.exec("CREATE TABLE panel_companies(company_id TEXT PRIMARY KEY, config JSONB NOT NULL DEFAULT '{}'::jsonb)");
+  for(const [id,days] of [['A',7],['B',0]]){
+    await pg.query("INSERT INTO panel_companies(company_id,config) VALUES($1,$2)",[id,JSON.stringify({VALIDEZ_PRESUPUESTO_DIAS:days})]);
+  }
+  const from=Date.now();
+  const automatic=await createCommercialFollowup(db,'A',{...input('Presupuesto nuevo'),esPresupuesto:true,venceEl:null},'A');
+  const expiryMs=new Date(automatic.venceEl).getTime();
+  assert.ok(expiryMs>=from+7*86400000-2000&&expiryMs<=Date.now()+7*86400000+2000);
+  assert.equal(automatic.esPresupuesto,true);
+  const plain=await createCommercialFollowup(db,'A',{...input('Oportunidad regular'),venceEl:null},'A');
+  assert.equal(plain.venceEl,null);assert.equal(plain.esPresupuesto,false);
+  const b=await createCommercialFollowup(db,'B',{...input('B presupuesto'),esPresupuesto:true,venceEl:null},'B');
+  assert.equal(b.venceEl,null);assert.equal(b.esPresupuesto,true);
+  const manual=new Date(Date.now()+2*86400000).toISOString();
+  const specified=await createCommercialFollowup(db,'A',{...input('Fecha explícita'),esPresupuesto:true,venceEl:manual},'A');
+  assert.equal(new Date(specified.venceEl).toISOString(),manual);
+  assert.equal((await listCommercialFollowups(db,'B','TODOS')).total,1);
+  assert.equal((await listCommercialFollowups(db,'A','TODOS')).total,3);
+  assert.equal((await commercialFollowupHistory(db,'A',automatic.id))[0].despues.esPresupuesto,true);
+ }finally{await pg.close();}
+});
+test('preferencias dañadas y tipos inválidos no producen presupuestos automáticos',async()=>{
+ const {pg,db}=await setup();
+ try{
+  await pg.exec("CREATE TABLE panel_companies(company_id TEXT PRIMARY KEY, config JSONB)");
+  await pg.query('INSERT INTO panel_companies(company_id,config) VALUES($1,$2)',['A',JSON.stringify({VALIDEZ_PRESUPUESTO_DIAS:700})]);
+  await assert.rejects(createCommercialFollowup(db,'A',{...input(),esPresupuesto:true,venceEl:null},'o'),/Vigencia del negocio inválida/);
+  await assert.rejects(createCommercialFollowup(db,'A',{...input(),esPresupuesto:'true'},'o'),/Indicador de presupuesto inválido/);
+  await assert.rejects(createCommercialFollowup(db,'B',{...input(),esPresupuesto:true},'o'),/Empresa no encontrada/);
+  assert.equal((await listCommercialFollowups(db,'A','TODOS')).total,0);
+ }finally{await pg.close();}
+});

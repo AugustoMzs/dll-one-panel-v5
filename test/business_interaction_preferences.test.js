@@ -17,10 +17,11 @@ test('configuraciones comerciales: guardado real, revisión y aislamiento entre 
   assert.equal(a0.config.PEDIR_NOMBRE_CLIENTE,false);
   assert.equal(a0.config.MENSAJE_BIENVENIDA,'');
   assert.equal(a0.config.MENSAJE_DERIVACION_HUMANA,'');
-  const a1=await saveBusinessProfile(db,'A',{revision:0,MENSAJE_BIENVENIDA:'¡Bienvenidos!',MENSAJE_DERIVACION_HUMANA:'Te atenderá nuestro equipo.',PEDIR_NOMBRE_CLIENTE:true},false);
+  const a1=await saveBusinessProfile(db,'A',{revision:0,MENSAJE_BIENVENIDA:'¡Bienvenidos!',MENSAJE_DERIVACION_HUMANA:'Te atenderá nuestro equipo.',PEDIR_NOMBRE_CLIENTE:true,VALIDEZ_PRESUPUESTO_DIAS:14},false);
   assert.equal(a1.config.PEDIR_NOMBRE_CLIENTE,true);
   assert.equal(a1.config.MENSAJE_BIENVENIDA,'¡Bienvenidos!');
   assert.equal(a1.revision,1);
+  assert.equal(a1.config.VALIDEZ_PRESUPUESTO_DIAS,14);
   assert.equal((await getBusinessProfile(db,(await db.query('SELECT * FROM panel_companies WHERE company_id=$1',['B'])).rows[0])).config.PEDIR_NOMBRE_CLIENTE,false);
   await assert.rejects(saveBusinessProfile(db,'A',{revision:0,PEDIR_NOMBRE_CLIENTE:false},false),/otra sesión/);
   await assert.rejects(saveBusinessProfile(db,'A',{revision:1,PEDIR_NOMBRE_CLIENTE:'true'},false),/SI o NO/);
@@ -29,6 +30,10 @@ test('configuraciones comerciales: guardado real, revisión y aislamiento entre 
   const a2=await saveBusinessProfile(db,'A',{revision:1,TELEFONO:'2625555555'},false);
   assert.equal(a2.config.PEDIR_NOMBRE_CLIENTE,true);
   assert.equal(a2.config.MENSAJE_BIENVENIDA,'¡Bienvenidos!');
+  assert.equal(a2.config.VALIDEZ_PRESUPUESTO_DIAS,14);
+  assert.equal((await getBusinessProfile(db,(await db.query('SELECT * FROM panel_companies WHERE company_id=$1',['B'])).rows[0])).config.VALIDEZ_PRESUPUESTO_DIAS,0);
+  await assert.rejects(saveBusinessProfile(db,'A',{revision:2,VALIDEZ_PRESUPUESTO_DIAS:366},false),/0 a 365/);
+  await assert.rejects(saveBusinessProfile(db,'A',{revision:2,VALIDEZ_PRESUPUESTO_DIAS:'10'},false),/0 a 365/);
  }finally{await pg.close();}
 });
 
@@ -38,4 +43,12 @@ test('campos de Mi negocio conectados al formulario sin modificar Dashboard',()=
  assert.match(html,/MENSAJE_BIENVENIDA:\$\('bizWelcome'\)/);
  assert.match(html,/PEDIR_NOMBRE_CLIENTE:\$\('bizAskName'\)/);
  assert.match(html,/MENSAJE_DERIVACION_HUMANA:\$\('bizHandoff'\)/);
+});
+
+test('la vigencia por defecto está conectada a Mi negocio y no depende del Dashboard',()=>{
+ const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+ assert.match(html,/id="bizQuoteValidity"/);
+ assert.match(html,/VALIDEZ_PRESUPUESTO_DIAS:days/);
+ assert.match(html,/id="commercialIsQuote"/);
+ assert.match(html,/esPresupuesto:\$\('commercialIsQuote'\)\.checked/);
 });

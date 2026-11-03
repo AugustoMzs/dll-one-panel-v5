@@ -901,6 +901,7 @@
                 <div class="form-field"><label for="commercialAmount">Importe estimado (opcional)</label><input id="commercialAmount" type="number" min="0" max="999999999999.99" step="0.01" placeholder="0,00"></div>
                 <div class="form-field"><label for="commercialDate">Próximo seguimiento</label><input id="commercialDate" type="datetime-local"></div>
                 <div class="form-field"><label for="commercialExpiry">Vencimiento del presupuesto (opcional)</label><input id="commercialExpiry" type="datetime-local"><small>No se vencerá automáticamente ninguna venta; se mostrará como aviso interno.</small></div>
+                <label class="module-check"><input id="commercialIsQuote" type="checkbox"> Es un presupuesto (usar vigencia de Mi negocio si no elegís vencimiento)</label>
                 <div class="form-field full"><label for="commercialNotes">Observaciones internas</label><textarea id="commercialNotes" maxlength="1500" rows="2" placeholder="Qué necesita el cliente"></textarea></div>
               </div>
               <div class="actions-row"><button id="commercialSubmit" class="btn btn-primary" type="submit">Guardar oportunidad</button><span id="commercialStatus" role="status"></span></div>
@@ -956,6 +957,7 @@
                 <div class="form-field full"><label for="bizWelcome">Mensaje de bienvenida (opcional)</label><textarea id="bizWelcome" maxlength="350" rows="3" placeholder="¡Hola! ¿En qué te puedo ayudar?"></textarea><small>Se usa solo cuando el cliente saluda sin pedir nada más. No incluyas precios que deban actualizarse desde el catálogo.</small></div>
                 <label class="module-check"><input id="bizAskName" type="checkbox"> Consultar el nombre si el cliente saluda y WhatsApp no lo proporciona</label>
                 <div class="form-field full"><label for="bizHandoff">Mensaje adicional al derivar a una persona (opcional)</label><textarea id="bizHandoff" maxlength="350" rows="3" placeholder="Un integrante del equipo te va a ayudar por este chat."></textarea><small>Solo se agrega cuando el bot deriva una conversación a atención humana.</small></div>
+                <div class="form-field"><label for="bizQuoteValidity">Vigencia predeterminada de presupuestos (días)</label><input id="bizQuoteValidity" type="number" min="0" max="365" step="1" value="0"><small>0 = sin vencimiento automático. Solo se aplica a nuevos presupuestos del seguimiento comercial; cada día equivale a 24 horas.</small></div>
               </div>
               <p class="mini-note">Guardá estas preferencias junto con los datos generales usando «Guardar cambios».</p>
             </div>
@@ -2234,6 +2236,7 @@
       const amountText=$('commercialAmount').value.trim();
       if(amountText && !/^[0-9]{1,12}(\.[0-9]{1,2})?$/.test(amountText))throw Error('Importe inválido: usá hasta dos decimales.');
       const payload={
+        esPresupuesto:$('commercialIsQuote').checked,
         nombre:$('commercialName').value.trim(),
         clienteId:$('commercialClientId').value.trim(),
         asunto:$('commercialSubject').value.trim(),
@@ -2289,6 +2292,7 @@
         active&&followAt!==null&&followAt<Date.now()?'Seguimiento atrasado':'';
       return '<article class="order-card" data-followup-id="'+esc(o.id)+'">'+
         '<div class="order-card-head"><div><div class="order-id">'+esc(o.asunto)+'</div><div class="order-client">'+esc(o.nombre)+'</div></div><span class="status-chip">'+esc(o.estado)+'</span></div>'+
+        (o.esPresupuesto?'<p class="mini-note">Presupuesto</p>':'')+
         (indicator?'<p class="mini-note" role="status">'+esc(indicator)+'</p>':'')+
         '<div class="order-meta"><div><strong>Importe estimado</strong><br>'+esc(amount)+'</div><div><strong>Contacto</strong><br>'+esc(o.clienteId||'—')+'</div></div>'+
         '<div class="form-field"><label>Próximo contacto</label><input class="commercial-next" type="datetime-local" value="'+esc(commercialLocalTime(o.seguimientoEl))+'"></div>'+
@@ -2484,6 +2488,7 @@
     $('bizWelcome').value=c.MENSAJE_BIENVENIDA||'';
     $('bizAskName').checked=c.PEDIR_NOMBRE_CLIENTE===true;
     $('bizHandoff').value=c.MENSAJE_DERIVACION_HUMANA||'';
+    $('bizQuoteValidity').value=String(c.VALIDEZ_PRESUPUESTO_DIAS??0);
     $('bizPhoneNumberId').value=e.phoneNumberId||'';
     const isSuper=String(currentUser?.role||'').toUpperCase()==='SUPERADMIN';
     const active=['ventas','gastro','eventos','servicios','salud'].filter(k=>moduleFlag(m,k));
@@ -2507,6 +2512,10 @@
       email.reportValidity();return;
     }
     const selectedCompany=companyId;
+    const days=Number($('bizQuoteValidity').value);
+    if(!Number.isSafeInteger(days)||days<0||days>365||!$('bizQuoteValidity').checkValidity()){
+      status.textContent='La vigencia debe ser un número entero de 0 a 365 días.';return;
+    }
     const isSuper=String(currentUser?.role||'').toUpperCase()==='SUPERADMIN';
     if(businessRevision===null){status.textContent='Cargá la configuración antes de guardar.';return;}
     const body={revision:businessRevision,
@@ -2514,7 +2523,8 @@
       TELEFONO:$('bizPhone').value.trim(), DIRECCION:$('bizAddress').value.trim(), EMAIL:email.value.trim(),
       MENSAJE_BIENVENIDA:$('bizWelcome').value.trim(),
       PEDIR_NOMBRE_CLIENTE:$('bizAskName').checked,
-      MENSAJE_DERIVACION_HUMANA:$('bizHandoff').value.trim()
+      MENSAJE_DERIVACION_HUMANA:$('bizHandoff').value.trim(),
+      VALIDEZ_PRESUPUESTO_DIAS:days
     };
     if(isSuper){
       body.PHONE_NUMBER_ID=$('bizPhoneNumberId').value.trim();

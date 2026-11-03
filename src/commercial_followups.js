@@ -35,11 +35,12 @@ const cleanState=s=>{
 function normalize(row){
  return {id:row.id,clienteId:row.client_id,nombre:row.customer_name,asunto:row.subject,observaciones:row.notes,
  estado:row.state,importe:row.amount==null?null:Number(row.amount),
- seguimientoEl:row.followup_at,venceEl:row.expires_at??null,revision:row.revision,creadoEl:row.created_at,actualizadoEl:row.updated_at};
+ seguimientoEl:row.followup_at,venceEl:row.expires_at??null,esPresupuesto:row.is_quote===true||row.expires_at!=null,revision:row.revision,creadoEl:row.created_at,actualizadoEl:row.updated_at};
 }
 export async function initCommercialFollowups(db){
  await db.query("CREATE TABLE IF NOT EXISTS panel_commercial_followups (id TEXT PRIMARY KEY,company_id TEXT NOT NULL,client_id TEXT NOT NULL DEFAULT '',customer_name TEXT NOT NULL,subject TEXT NOT NULL,notes TEXT NOT NULL DEFAULT '',state TEXT NOT NULL DEFAULT 'ABIERTA',amount NUMERIC(14,2),followup_at TIMESTAMPTZ,revision INTEGER NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),CONSTRAINT chk_commercial_followup_state CHECK(state IN ('ABIERTA','CONTACTAR','EN_ESPERA','GANADA','PERDIDA')),CONSTRAINT chk_commercial_followup_amount CHECK(amount IS NULL OR (amount>=0 AND amount<=999999999999.99)))");
  await db.query("ALTER TABLE panel_commercial_followups ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ");
+ await db.query("ALTER TABLE panel_commercial_followups ADD COLUMN IF NOT EXISTS is_quote BOOLEAN NOT NULL DEFAULT FALSE");
  await db.query("CREATE INDEX IF NOT EXISTS idx_panel_commercial_followups_company_date ON panel_commercial_followups(company_id,state,followup_at,created_at DESC)");
  await db.query("CREATE INDEX IF NOT EXISTS idx_panel_commercial_followups_expiry ON panel_commercial_followups(company_id,expires_at) WHERE state IN ('ABIERTA','CONTACTAR','EN_ESPERA')");
  await db.query("CREATE TABLE IF NOT EXISTS panel_commercial_followup_audit (id TEXT PRIMARY KEY,company_id TEXT NOT NULL,followup_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,before_data JSONB,after_data JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
@@ -69,7 +70,9 @@ export async function listCommercialFollowups(db,companyId,filter='PENDIENTES',o
 export async function createCommercialFollowup(db,companyId,input,actor){
  const cid=text(companyId,120,'empresa',{required:true}),operator=text(actor,200,'operador',{required:true});
  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Formulario inválido.');
- if(Object.keys(input).some(k=>!['clienteId','nombre','asunto','observaciones','importe','seguimientoEl','venceEl'].includes(k)))throw Error('Campo no autorizado.');
+ if(Object.keys(input).some(k=>!['clienteId','nombre','asunto','observaciones','importe','seguimientoEl','venceEl','esPresupuesto'].includes(k)))throw Error('Campo no autorizado.');
+ if(Object.hasOwn(input,'esPresupuesto')&&typeof input.esPresupuesto!=='boolean')throw Error('Indicador de presupuesto inválido.');
+ const isQuote=input.esPresupuesto===true || Boolean(input.venceEl);
  const obj={clienteId:text(input.clienteId??'',120,'cliente'),nombre:text(input.nombre,200,'nombre',{required:true}),
  asunto:text(input.asunto,250,'asunto',{required:true}),observaciones:text(input.observaciones??'',1500,'observaciones'),
  importe:money(input.importe),seguimientoEl:nextDate(input.seguimientoEl??null),venceEl:expiryDate(input.venceEl??null)};
@@ -77,9 +80,18 @@ export async function createCommercialFollowup(db,companyId,input,actor){
  try{
   await client.query('BEGIN');
   const id=randomUUID();
+  // Solo presupuestos nuevos sin fecha explícita heredan la vigencia configurada en su empresa.
+  if(isQuote && !obj.venceEl){
+    const company=(await client.query('SELECT config FROM panel_companies WHERE company_id=$1',[cid])).rows[0];
+    if(!company)throw Error('Empresa no encontrada.');
+    const rawDays=company.config?.VALIDEZ_PRESUPUESTO_DIAS??0;
+    const days=Number(rawDays);
+    if(!Number.isSafeInteger(days)||days<0||days>365)throw Error('Vigencia del negocio inválida.');
+    if(days>0)obj.venceEl=new Date(Date.now()+days*86400000).toISOString();
+  }
   const result=await client.query(
-   "INSERT INTO panel_commercial_followups(id,company_id,client_id,customer_name,subject,notes,amount,followup_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
-   [id,cid,obj.clienteId,obj.nombre,obj.asunto,obj.observaciones,obj.importe,obj.seguimientoEl,obj.venceEl]);
+   "INSERT INTO panel_commercial_followups(id,company_id,client_id,customer_name,subject,notes,amount,followup_at,expires_at,is_quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
+   [id,cid,obj.clienteId,obj.nombre,obj.asunto,obj.observaciones,obj.importe,obj.seguimientoEl,obj.venceEl,isQuote]);
   const created=normalize(result.rows[0]);
   await client.query("INSERT INTO panel_commercial_followup_audit(id,company_id,followup_id,actor,action,before_data,after_data) VALUES($1,$2,$3,$4,'CREADA',NULL,$5)",[randomUUID(),cid,id,operator,JSON.stringify(created)]);
   await client.query('COMMIT');
@@ -109,8 +121,8 @@ export async function updateCommercialFollowup(db,companyId,id,input,actor){
     await client.query('COMMIT');return {changed:false,item:before};
   }
   const updated=await client.query(
-   "UPDATE panel_commercial_followups SET state=$3,notes=$4,followup_at=$5,expires_at=$6,revision=revision+1,updated_at=NOW() WHERE company_id=$1 AND id=$2 RETURNING *",
-   [cid,fid,estado,notas,fecha,vencimiento]);
+   "UPDATE panel_commercial_followups SET state=$3,notes=$4,followup_at=$5,expires_at=$6,is_quote=$7,revision=revision+1,updated_at=NOW() WHERE company_id=$1 AND id=$2 RETURNING *",
+   [cid,fid,estado,notas,fecha,vencimiento,row.is_quote===true||vencimiento!=null]);
   const item=normalize(updated.rows[0]);
   await client.query("INSERT INTO panel_commercial_followup_audit(id,company_id,followup_id,actor,action,before_data,after_data) VALUES($1,$2,$3,$4,'ACTUALIZADA',$5,$6)",[randomUUID(),cid,fid,operator,JSON.stringify(before),JSON.stringify(item)]);
   await client.query('COMMIT');
