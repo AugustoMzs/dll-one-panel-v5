@@ -5,6 +5,7 @@ import {initSalesTools} from './sales_tools.js';
 import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
+import {listCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,commercialFollowupHistory} from './commercial_followups.js';
 import {loginThrottleKey,consumeLoginAttempt,clearLoginAttempts} from './login_throttle.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
 import {listOrderActions} from './order_actions.js';
@@ -1407,6 +1408,36 @@ app.use(
   companyAccessRequired,
   requireConfiguredModule(getCompany)
 );
+
+
+app.get('/api/company/:companyId/commercial/followups',authRequired,companyAccessRequired,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{
+    const result=await listCommercialFollowups(pool,req.params.companyId,String(req.query.filter||'PENDIENTES'));
+    res.json({ok:true,...result});
+  }catch(e){res.status(400).json({ok:false,error:String(e.message||e)});}
+});
+app.post('/api/company/:companyId/commercial/followups',authRequired,canOperate,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{
+    const item=await createCommercialFollowup(pool,req.params.companyId,req.body||{},String(req.session?.sub||'PANEL'));
+    res.status(201).json({ok:true,item});
+  }catch(e){res.status(400).json({ok:false,error:String(e.message||e)});}
+});
+app.patch('/api/company/:companyId/commercial/followups/:id',authRequired,canOperate,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{
+    const result=await updateCommercialFollowup(pool,req.params.companyId,req.params.id,req.body||{},String(req.session?.sub||'PANEL'));
+    res.json({ok:true,...result});
+  }catch(e){res.status(e.code==='STALE_FOLLOWUP'?409:400).json({ok:false,error:String(e.message||e)});}
+});
+app.get('/api/company/:companyId/commercial/followups/:id/history',authRequired,companyAccessRequired,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{
+    const items=await commercialFollowupHistory(pool,req.params.companyId,req.params.id);
+    res.json({ok:true,items});
+  }catch{res.status(503).json({ok:false,error:'No se pudo consultar el historial comercial.'});}
+});
 
 app.use('/api/company/:companyId/business-admin',businessAdminRouter(pool,getCompany));
 app.use('/api/company/:companyId/catalog/tools',salesToolsRouter(pool,getCompany));
