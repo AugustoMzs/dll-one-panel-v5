@@ -13,7 +13,8 @@ export async function getBusinessProfile(db,company){
  const pickup=await getPickup(db,company);config.DIRECCION=pickup.address;
  return {empresa:{idEmpresa:company.company_id,nombreEmpresa:config.NOMBRE_EMPRESA||company.company_name,phoneNumberId:saved?.phone_number_id??company.phone_number_id,tipoNegocio:config.TIPO_NEGOCIO||'MIXTO'},config:{...Object.fromEntries(fields.map(k=>[k,String(config[k]||'')])),
    ...Object.fromEntries(Object.keys(interactionFields).map(k=>[k,String(config[k]||'')])),
-   PEDIR_NOMBRE_CLIENTE:enabledFlag(config.PEDIR_NOMBRE_CLIENTE)
+   PEDIR_NOMBRE_CLIENTE:enabledFlag(config.PEDIR_NOMBRE_CLIENTE),
+   VALIDEZ_PRESUPUESTO_DIAS:Number.isSafeInteger(Number(config.VALIDEZ_PRESUPUESTO_DIAS??0))&&Number(config.VALIDEZ_PRESUPUESTO_DIAS??0)>=0&&Number(config.VALIDEZ_PRESUPUESTO_DIAS??0)<=365?Number(config.VALIDEZ_PRESUPUESTO_DIAS??0):0
   },modulos:saved?.modules??company.modules,revision:saved?.revision??0,source:'POSTGRES_DIRECT'};
 }
 export async function saveBusinessProfile(db,companyId,data,allowModules){
@@ -38,6 +39,11 @@ export async function saveBusinessProfile(db,companyId,data,allowModules){
   if(Object.hasOwn(data,'PEDIR_NOMBRE_CLIENTE')){
     if(typeof data.PEDIR_NOMBRE_CLIENTE!=='boolean')throw Error('La solicitud de nombre debe ser SI o NO.');
     config.PEDIR_NOMBRE_CLIENTE=data.PEDIR_NOMBRE_CLIENTE;
+  }
+  if(Object.hasOwn(data,'VALIDEZ_PRESUPUESTO_DIAS')){
+    if(!Number.isSafeInteger(data.VALIDEZ_PRESUPUESTO_DIAS)||data.VALIDEZ_PRESUPUESTO_DIAS<0||data.VALIDEZ_PRESUPUESTO_DIAS>365)
+      throw Error('La vigencia de presupuestos debe ser de 0 a 365 días.');
+    config.VALIDEZ_PRESUPUESTO_DIAS=data.VALIDEZ_PRESUPUESTO_DIAS;
   }
   if(!String(config.NOMBRE_EMPRESA||company.company_name).trim())throw new Error('Ingresá el nombre comercial.');
   if(config.EMAIL&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(config.EMAIL))throw new Error('Email inválido.');
