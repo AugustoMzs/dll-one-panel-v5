@@ -29,12 +29,15 @@ export async function getNotifications(db, companyId, actor) {
        COALESCE(s.customer_name,'') AS name
       FROM messages m FULL JOIN (SELECT * FROM panel_chat_state WHERE company_id=$1) s USING(client_id)
       WHERE COALESCE(m.unread,0)>0 OR s.mode='HUMANO'`,[companyId,actor]),
-    db.query(`SELECT order_id, customer_name, order_state, payment_state FROM panel_orders
+    // No transferir cientos de miles de filas para pintar tres contadores.
+    // Mantiene exactamente los filtros del listado anterior.
+    db.query(`SELECT COUNT(*)::int AS pending_orders,
+        COUNT(*) FILTER (WHERE payment_state IN ('PENDIENTE','COMPROBANTE_RECIBIDO'))::int AS pending_payments
+      FROM panel_orders
       WHERE company_id=$1 AND order_state<>'CANCELADO'
-      AND (order_state<>'ENTREGADO' OR payment_state IN ('PENDIENTE','COMPROBANTE_RECIBIDO'))
-      ORDER BY created_at ASC`,[companyId]),
-    db.query(`SELECT quote_id,customer_name FROM panel_delivery_quotes
-      WHERE company_id=$1 AND state='PENDIENTE' ORDER BY created_at ASC`,[companyId]),
+      AND (order_state<>'ENTREGADO' OR payment_state IN ('PENDIENTE','COMPROBANTE_RECIBIDO'))`,[companyId]),
+    db.query(`SELECT COUNT(*)::int AS pending_quotes FROM panel_delivery_quotes
+      WHERE company_id=$1 AND state='PENDIENTE'`,[companyId]),
     db.query(`SELECT
       (SELECT COALESCE(MAX(id),0)::text FROM panel_conversation_messages WHERE company_id=$1 AND sender_type IN ('CLIENTE','BOT')) AS messages,
       (SELECT COALESCE(MAX(id),0)::text FROM panel_orders WHERE company_id=$1) AS orders,
@@ -46,8 +49,8 @@ export async function getNotifications(db, companyId, actor) {
   ]);
   const items=chats.rows.map(x=>({clientId:x.client_id,lastMessageId:x.last_id,unread:Number(x.unread),human:x.human,name:x.name}));
   const counts={receipts:Number(signals.rows[0]?.pending_receipts||0),conversations:items.length,unread:items.filter(x=>x.unread>0).length,
-    human:items.filter(x=>x.human).length, orders:orders.rows.length, delivery:quotes.rows.length,
-    payments:orders.rows.filter(x=>['PENDIENTE','COMPROBANTE_RECIBIDO'].includes(x.payment_state)).length};
+    human:items.filter(x=>x.human).length, orders:Number(orders.rows[0]?.pending_orders||0),
+    delivery:Number(quotes.rows[0]?.pending_quotes||0), payments:Number(orders.rows[0]?.pending_payments||0)};
   return {counts,chats:items,signals:signals.rows[0],updatedAt:new Date().toISOString()};
 }
 export async function markThreadRead(db,companyId,actor,clientId,lastId) {
