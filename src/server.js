@@ -6,6 +6,7 @@ import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
+import {listOrderActions} from './order_actions.js';
 import {eventsChat} from './events_chat.js';
 import {initPayments, paymentSettings} from './payment_settings.js';
 import {paymentRouter,publicPaymentRoutes,flushPaymentNotifications} from './payment_routes.js';
@@ -2163,6 +2164,13 @@ app.get('/api/company/:companyId/pedidos/:orderId/edits',
   res.set('Cache-Control','no-store');
   try{res.json({ok:true,items:await listOrderEdits(pool,req.params.companyId,req.params.orderId)});}
   catch{res.status(503).json({ok:false,error:'No se pudo consultar el historial de cambios.'});}
+});
+
+app.get('/api/company/:companyId/pedidos/:orderId/action-history',
+  authRequired, companyAccessRequired, async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  try{res.json({ok:true,items:await listOrderActions(pool,req.params.companyId,req.params.orderId)});}
+  catch{res.status(503).json({ok:false,error:'No se pudo consultar la auditoría de estados.'});}
 });
 
 app.post(
