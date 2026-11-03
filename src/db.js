@@ -7,6 +7,7 @@ import {initGastroSettings} from "./gastro_settings.js";
 import {initGastroCatalog} from "./gastro_catalog.js";
 import {initReceipts} from "./receipts.js";
 import {initNotifications} from "./notifications.js";
+import {initOrderActions,transitionOrder} from './order_actions.js';
 import {initOrderEdits} from './order_edits.js';
 import pg from "pg";
 
@@ -188,6 +189,8 @@ export async function initDb() {
   `);
 
   await initOrderEdits(pool);
+
+  await initOrderActions(pool);
 
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_orders_source_wamid
@@ -1083,126 +1086,8 @@ export async function updateDirectOrderAction(
   operator = "",
   notes = ""
 ) {
-  const current = await getDirectOrder(companyId, orderId);
-
-  if (!current) {
-    throw new Error("Pedido no encontrado.");
-  }
-
-  const act =
-    String(action || "")
-      .trim()
-      .toUpperCase();
-
-  let paymentState =
-    String(current.estadoPago || "");
-
-  let orderState =
-    String(current.estadoPedido || "");
-
-  const now = new Date();
-  let preparingAt = current.preparandoEl;
-  let readyAt = current.listoEl;
-  let outAt = current.salioEl;
-  let deliveredAt = current.entregadoEl;
-
-  if (act === "CONFIRMAR_PAGO") {
-    paymentState = "CONFIRMADO";
-
-    if (
-      !orderState ||
-      orderState === "ESPERANDO_PAGO"
-    ) {
-      orderState = "PENDIENTE_PREPARACION";
-    }
-  } else if (act === "RECHAZAR_PAGO") {
-    paymentState = "RECHAZADO";
-    orderState = "ESPERANDO_PAGO";
-  } else if (act === "PENDIENTE_PREPARACION") {
-    orderState = "PENDIENTE_PREPARACION";
-  } else if (act === "PREPARANDO") {
-    orderState = "PREPARANDO";
-    preparingAt = preparingAt || now;
-  } else if (act === "LISTO_RETIRO") {
-    orderState = "LISTO_RETIRO";
-    readyAt = readyAt || now;
-  } else if (act === "EN_CAMINO") {
-    if (
-      String(current.tipoEntrega || "").toUpperCase() !== "DELIVERY"
-    ) {
-      throw new Error(
-        "EN CAMINO solo corresponde a pedidos con delivery."
-      );
-    }
-
-    orderState = "EN_CAMINO";
-    outAt = outAt || now;
-  } else if (act === "ENTREGADO") {
-    orderState = "ENTREGADO";
-    deliveredAt = deliveredAt || now;
-  } else if (act === "CANCELADO") {
-    orderState = "CANCELADO";
-  } else {
-    throw new Error("Acción de pedido no permitida.");
-  }
-
-  const changed =
-    paymentState !== current.estadoPago ||
-    orderState !== current.estadoPedido ||
-    (
-      String(notes || "").trim() &&
-      String(notes || "").trim() !==
-        String(current.observaciones || "").trim()
-    );
-
-  if (!changed) {
-    return {
-      ok: true,
-      changed: false,
-      order: current
-    };
-  }
-
-  const updated = await pool.query(
-    `
-      UPDATE panel_orders
-      SET
-        payment_state=$3,
-        order_state=$4,
-        notes=
-          CASE
-            WHEN $5 <> '' THEN $5
-            ELSE notes
-          END,
-        preparing_at=$6,
-        ready_at=$7,
-        out_for_delivery_at=$8,
-        delivered_at=$9,
-        updated_at=NOW()
-      WHERE company_id=$1
-        AND order_id=$2
-      RETURNING *
-    `,
-    [
-      String(companyId || ""),
-      String(orderId || ""),
-      paymentState,
-      orderState,
-      String(notes || "").trim(),
-      preparingAt,
-      readyAt,
-      outAt,
-      deliveredAt
-    ]
-  );
-
-  return {
-    ok: true,
-    changed: true,
-    action: act,
-    operator: String(operator || ""),
-    order: normalizeOrderRow(updated.rows[0])
-  };
+  const result=await transitionOrder(pool,companyId,orderId,action,operator,notes);
+  return {...result,order:normalizeOrderRow(result.row),row:undefined};
 }
 
 function normalizeQuoteRow(row) {
