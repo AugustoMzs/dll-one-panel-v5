@@ -859,6 +859,7 @@
                 <div class="actions-row"><button id="orderEditSave" type="submit" class="btn btn-primary">Guardar datos</button><button type="button" class="btn" onclick="closeOrderEdit()">Cerrar</button></div>
               </form>
               <details style="margin-top:16px"><summary>Historial de modificaciones</summary><div id="orderEditHistory" class="data-list">Sin modificaciones consultadas.</div></details>
+              <details style="margin-top:16px"><summary>Historial de estados y pagos</summary><div id="orderActionHistory" class="data-list">Sin estados consultados.</div></details>
             </dialog>
           </div>
         </section>
@@ -2071,12 +2072,20 @@
     updateOrderEditDelivery();
     $('orderEditStatus').textContent='';
     $('orderEditHistory').textContent='Consultando modificaciones…';
+    $('orderActionHistory').textContent='Consultando estados…';
     $('orderEditDialog').showModal();
     try{
-      const r=await api('/api/company/'+encodeURIComponent(selectedCompany)+'/pedidos/'+encodeURIComponent(order.idPedido)+'/edits');
+      const base='/api/company/'+encodeURIComponent(selectedCompany)+'/pedidos/'+encodeURIComponent(order.idPedido);
+      const [r,actions]=await Promise.all([api(base+'/edits'),api(base+'/action-history')]);
       if(!orderEditSelection||orderEditSelection.companyId!==selectedCompany||orderEditSelection.order.idPedido!==order.idPedido)return;
       $('orderEditHistory').innerHTML=(r.items||[]).length?(r.items||[]).map(x=>'<div class="data-row"><strong>'+esc(new Date(x.fecha).toLocaleString('es-AR'))+'</strong><div>'+esc(x.operador||'Operador')+'</div><small>Entrega: '+esc(x.antes?.tipoEntrega||'—')+' → '+esc(x.despues?.tipoEntrega||'—')+'</small><small>Dirección: '+esc(x.antes?.direccion||'—')+' → '+esc(x.despues?.direccion||'—')+'</small><small>Notas: '+esc(x.antes?.observaciones||'—')+' → '+esc(x.despues?.observaciones||'—')+'</small></div>').join(''):'<div class="empty">Todavía no hay cambios administrativos.</div>';
-    }catch{if(orderEditSelection?.order.idPedido===order.idPedido)$('orderEditHistory').textContent='No se pudo consultar el historial.';}
+      $('orderActionHistory').innerHTML=(actions.items||[]).length?(actions.items||[]).map(x=>'<div class="data-row"><strong>'+esc(x.accion||'Acción')+'</strong><div>'+esc(x.operador||'Operador')+' · '+esc(new Date(x.fecha).toLocaleString('es-AR'))+'</div><small>Pedido: '+esc(x.antes?.estadoPedido||'—')+' → '+esc(x.despues?.estadoPedido||'—')+'</small><small>Pago: '+esc(x.antes?.estadoPago||'—')+' → '+esc(x.despues?.estadoPago||'—')+'</small></div>').join(''):'<div class="empty">Aún no hay movimientos auditados.</div>';
+    }catch{
+      if(orderEditSelection?.order.idPedido===order.idPedido){
+        $('orderEditHistory').textContent='No se pudo consultar el historial.';
+        $('orderActionHistory').textContent='No se pudo consultar la auditoría de estados.';
+      }
+    }
   }
   async function saveOrderDetails(){
     const selection=orderEditSelection;
