@@ -930,9 +930,10 @@ app.post("/sync/company", async (req, res) => {
 });
 
 app.post("/api/login", async (req, res) => {
-  const user = String(req.body?.user || "");
-  const password = String(req.body?.password || "");
+  const user = typeof req.body?.user==='string'?req.body.user:'';
+  const password = typeof req.body?.password==='string'?req.body.password:'';
   res.set('Cache-Control','no-store');
+  if(user.length>200||password.length>4096)return res.status(400).json({ok:false,error:'Datos de acceso inválidos.'});
   try {
     // req.ip proviene del socket remoto por defecto; no confiar en headers IP enviados por clientes.
     // El hash del par usuario/origen evita guardar el login y la IP en la tabla.
