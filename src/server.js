@@ -2191,11 +2191,7 @@ app.post(
           req.body?.notes || ""
         );
 
-      if(result.changed && ['CONFIRMAR_PAGO','RECHAZAR_PAGO','CANCELADO'].includes(String(req.body?.action||''))) {
-        await pool.query(`UPDATE panel_receipts SET state=$3,reviewed_by=$4,reviewed_at=NOW(),updated_at=NOW()
-          WHERE company_id=$1 AND order_id=$2 AND state='PENDIENTE'`,
-          [req.params.companyId,req.params.orderId,req.body.action==='CONFIRMAR_PAGO'?'CERRADO_PAGO':'ARCHIVADO',req.session?.sub||'PANEL']);
-      }
+      // Los comprobantes se actualizan dentro de la misma transacción que el pedido.
       let notification = {
         sent: false,
         reason: "SIN_CAMBIOS"
@@ -2245,7 +2241,7 @@ app.post(
         notification
       });
     } catch (err) {
-      return res.status(400).json({
+      return res.status(err?.code==='INVALID_ORDER_TRANSITION'?409:400).json({
         ok: false,
         error: String(err?.message || err)
       });
