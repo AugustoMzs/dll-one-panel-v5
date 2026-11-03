@@ -900,14 +900,26 @@
                 <div class="form-field full"><label for="commercialSubject">Asunto / presupuesto</label><input id="commercialSubject" maxlength="250" required placeholder="Ej.: Cotización de instalación"></div>
                 <div class="form-field"><label for="commercialAmount">Importe estimado (opcional)</label><input id="commercialAmount" type="number" min="0" max="999999999999.99" step="0.01" placeholder="0,00"></div>
                 <div class="form-field"><label for="commercialDate">Próximo seguimiento</label><input id="commercialDate" type="datetime-local"></div>
+                <div class="form-field"><label for="commercialExpiry">Vencimiento del presupuesto (opcional)</label><input id="commercialExpiry" type="datetime-local"><small>No se vencerá automáticamente ninguna venta; se mostrará como aviso interno.</small></div>
                 <div class="form-field full"><label for="commercialNotes">Observaciones internas</label><textarea id="commercialNotes" maxlength="1500" rows="2" placeholder="Qué necesita el cliente"></textarea></div>
               </div>
               <div class="actions-row"><button id="commercialSubmit" class="btn btn-primary" type="submit">Guardar oportunidad</button><span id="commercialStatus" role="status"></span></div>
             </form>
           </div>
+          <div class="card">
+            <h3 class="card-title">Avisos internos de seguimiento</h3>
+            <p class="card-sub">Los indicadores se calculan con la fecha actual. No se envían mensajes automáticos.</p>
+            <div class="actions-row" style="flex-wrap:wrap">
+              <button class="btn" type="button" onclick="commercialShowFilter('SEGUIMIENTOS_ATRASADOS')">Contactos atrasados: <strong id="commercialOverdue">0</strong></button>
+              <span class="mini-note">Próximas 48 h: <strong id="commercialUpcoming">0</strong></span>
+              <button class="btn" type="button" onclick="commercialShowFilter('PRESUPUESTOS_VENCIDOS')">Presupuestos vencidos: <strong id="commercialExpired">0</strong></button>
+              <button class="btn" type="button" onclick="commercialShowFilter('POR_VENCER')">Vencen en 48 h: <strong id="commercialExpiring">0</strong></button>
+              <button class="btn" type="button" onclick="loadCommercialFollowups()">Actualizar avisos</button>
+            </div>
+          </div>
           <div class="card table-card">
             <div class="table-head"><h3>Oportunidades</h3><span id="commercialCount" class="sync"></span></div>
-            <div class="actions-row"><label for="commercialFilter">Mostrar</label><select id="commercialFilter" onchange="commercialOffset=0;loadCommercialFollowups()"><option value="PENDIENTES">Pendientes</option><option value="TODOS">Todas</option><option value="GANADA">Ganadas</option><option value="PERDIDA">Perdidas</option></select></div>
+            <div class="actions-row"><label for="commercialFilter">Mostrar</label><select id="commercialFilter" onchange="commercialOffset=0;loadCommercialFollowups()"><option value="PENDIENTES">Pendientes</option><option value="TODOS">Todas</option><option value="GANADA">Ganadas</option><option value="PERDIDA">Perdidas</option><option value="SEGUIMIENTOS_ATRASADOS">Seguimientos atrasados</option><option value="PRESUPUESTOS_VENCIDOS">Presupuestos vencidos</option><option value="POR_VENCER">Vencen en 48 h</option></select></div>
             <div id="commercialTable" class="orders-grid"></div>
             <div class="actions-row" style="justify-content:space-between">
               <button id="commercialPrevious" type="button" class="btn" onclick="commercialChangePage(-1)">Anterior</button>
@@ -2227,6 +2239,7 @@
         asunto:$('commercialSubject').value.trim(),
         importe:amountText===''?null:Number(amountText),
         seguimientoEl:commercialIsoDate($('commercialDate').value),
+        venceEl:commercialIsoDate($('commercialExpiry').value),
         observaciones:$('commercialNotes').value.trim()
       };
       await api('/api/company/'+encodeURIComponent(requestedCompany)+'/commercial/followups',{method:'POST',body:JSON.stringify(payload)});
@@ -2238,11 +2251,26 @@
     }catch(e){$('commercialStatus').textContent=e.message||String(e);}
     finally{btn.disabled=false;}
   }
+  function commercialShowFilter(filter){
+    $('commercialFilter').value=filter;
+    commercialOffset=0;
+    loadCommercialFollowups().catch(e=>showNotice(String(e.message||e)));
+  }
   async function loadCommercialFollowups(){
     const cid=companyId;
     const filter=$('commercialFilter').value,offset=commercialOffset;
-    const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups?filter='+encodeURIComponent(filter)+'&offset='+offset);
+    const path='/api/company/'+encodeURIComponent(cid)+'/commercial';
+    const [r,reminders]=await Promise.all([
+      api(path+'/followups?filter='+encodeURIComponent(filter)+'&offset='+offset),
+      api(path+'/reminders').catch(()=>null)
+    ]);
     if(cid!==companyId||filter!==$('commercialFilter').value||offset!==commercialOffset)return;
+    if(reminders?.reminders){
+      $('commercialOverdue').textContent=String(reminders.reminders.seguimientosAtrasados||0);
+      $('commercialUpcoming').textContent=String(reminders.reminders.seguimientosProximos48h||0);
+      $('commercialExpired').textContent=String(reminders.reminders.presupuestosVencidos||0);
+      $('commercialExpiring').textContent=String(reminders.reminders.presupuestosPorVencer48h||0);
+    }
     if(r.total>0&&offset>=r.total){commercialOffset=Math.floor((r.total-1)/100)*100;return loadCommercialFollowups();}
     commercialItems=new Map((r.items||[]).map(o=>[String(o.id),o]));
     $('commercialCount').textContent=String(r.total||0)+' oportunidades';
@@ -2253,10 +2281,18 @@
       const states=['ABIERTA','CONTACTAR','EN_ESPERA','GANADA','PERDIDA'];
       const select='<select class="commercial-state" aria-label="Estado comercial">'+states.map(v=>'<option value="'+v+'"'+(o.estado===v?' selected':'')+'>'+v.replaceAll('_',' ')+'</option>').join('')+'</select>';
       const amount=o.importe===null?'Sin importe':'$'+Number(o.importe).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const active=!['GANADA','PERDIDA'].includes(o.estado);
+      const expires=o.venceEl?new Date(o.venceEl).getTime():null;
+      const followAt=o.seguimientoEl?new Date(o.seguimientoEl).getTime():null;
+      const indicator=active&&expires!==null&&expires<Date.now()?'Presupuesto vencido':
+        active&&expires!==null&&expires<Date.now()+48*3600000?'Presupuesto por vencer':
+        active&&followAt!==null&&followAt<Date.now()?'Seguimiento atrasado':'';
       return '<article class="order-card" data-followup-id="'+esc(o.id)+'">'+
         '<div class="order-card-head"><div><div class="order-id">'+esc(o.asunto)+'</div><div class="order-client">'+esc(o.nombre)+'</div></div><span class="status-chip">'+esc(o.estado)+'</span></div>'+
+        (indicator?'<p class="mini-note" role="status">'+esc(indicator)+'</p>':'')+
         '<div class="order-meta"><div><strong>Importe estimado</strong><br>'+esc(amount)+'</div><div><strong>Contacto</strong><br>'+esc(o.clienteId||'—')+'</div></div>'+
         '<div class="form-field"><label>Próximo contacto</label><input class="commercial-next" type="datetime-local" value="'+esc(commercialLocalTime(o.seguimientoEl))+'"></div>'+
+        '<div class="form-field"><label>Vencimiento del presupuesto</label><input class="commercial-expiry" type="datetime-local" value="'+esc(commercialLocalTime(o.venceEl))+'"></div>'+
         '<div class="form-field"><label>Observaciones</label><textarea class="commercial-notes" rows="2" maxlength="1500">'+esc(o.observaciones||'')+'</textarea></div>'+
         '<div class="order-actions">'+select+'<button class="soft" onclick="updateCommercialFromButton(this)">Guardar cambios</button>'+
         '<button class="soft" onclick="loadCommercialHistory(this)">Ver historial</button></div>'+
@@ -2271,7 +2307,8 @@
     try{
       const payload={revision:item.revision,estado:card.querySelector('.commercial-state').value,
         observaciones:card.querySelector('.commercial-notes').value,
-        seguimientoEl:commercialIsoDate(card.querySelector('.commercial-next').value)};
+        seguimientoEl:commercialIsoDate(card.querySelector('.commercial-next').value),
+        venceEl:commercialIsoDate(card.querySelector('.commercial-expiry').value)};
       const r=await api('/api/company/'+encodeURIComponent(cid)+'/commercial/followups/'+encodeURIComponent(id),
         {method:'PATCH',body:JSON.stringify(payload)});
       if(cid!==companyId)return;
