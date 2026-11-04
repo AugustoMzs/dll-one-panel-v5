@@ -29,7 +29,8 @@ const registrations=source.split('\n').filter(line=>/^app\.(get|post)\('\/api\/c
 const app=express();app.use(express.json());
 // Authentication is simulated here; JWT/session behavior has its own existing suite.
 const authRequired=(req,res,next)=>{const user=req.headers['x-test-user'];if(!user)return res.status(401).json({ok:false});req.session=user==='super'?{uid:0,role:'SUPERADMIN',sub:'owner'}:{uid:Number(user),role:'ADMIN_EMPRESA',sub:'user-'+user};next();};
-const deps={app,pool,userCanAccessCompany,authRequired,requireConfiguredModule,getCompany:async id=>(await pool.query('SELECT * FROM panel_companies WHERE company_id=$1',[id])).rows[0],isHealth,canOperate:requireCompanyOperation(pool),reserve,appointments,appointmentState,healthAssistant,crypto,interpretHealth:async()=>{aiCalls++;return {action:'HELP'};}};
+const requireSuperadmin=(req,res,next)=>String(req.session?.role||'').toUpperCase()==='SUPERADMIN'?next():res.status(403).json({ok:false});
+const deps={app,pool,userCanAccessCompany,authRequired,requireSuperadmin,requireConfiguredModule,getCompany:async id=>(await pool.query('SELECT * FROM panel_companies WHERE company_id=$1',[id])).rows[0],isHealth,canOperate:requireCompanyOperation(pool),reserve,appointments,appointmentState,healthAssistant,crypto,interpretHealth:async()=>{aiCalls++;return {action:'HELP'};}};
 new Function(...Object.keys(deps),companyAccess+globalGate+healthGate+registrations)(...Object.values(deps));
 const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
 const future=new Date(localToday()+'T12:00:00Z');future.setUTCDate(future.getUTCDate()+2);const date=future.toISOString().slice(0,10);

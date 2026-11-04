@@ -900,6 +900,11 @@
             <p id="outboundStatus" role="status" aria-live="polite"></p>
           </div>
           <div id="outboundTable" class="orders-grid"></div>
+          <div class="card">
+            <h3 class="card-title">Historial de solicitudes de cierre</h3>
+            <p class="mini-note">Un estado pendiente de conciliación no significa que el mensaje fue entregado. El cierre nunca reenvía WhatsApp.</p>
+            <div id="outboundClosures" class="data-list"></div>
+          </div>
         </section>
 
         <section id="commercial" class="section">
@@ -1604,7 +1609,7 @@
   async function changeCompany(){
     companyId=$('companySelect').value;
     commercialOffset=0;commercialItems.clear();
-    outboundLoadSeq++;
+    outboundLoadSeq++;outboundCloseAllowed=false;outboundClosureRequests.clear();
     salesRevision=null;catalogItems=[];clearCatalogForm();
     resetSalesTools();
     resetDeliveryView();
@@ -2353,6 +2358,8 @@
   }
 
   let outboundLoadSeq=0;
+  let outboundCloseAllowed=false;
+  let outboundClosureRequests=new Map();
   const outboundDate=value=>{
     const d=new Date(value);
     return Number.isFinite(d.getTime())?d.toLocaleString('es-AR'):'Fecha no disponible';
@@ -2362,13 +2369,26 @@
     if(!cid){$('outboundTable').replaceChildren();throw Error('Seleccioná una empresa.');}
     $('outboundStatus').textContent='Consultando casos pendientes…';
     try{
-      const r=await api('/api/company/'+encodeURIComponent(cid)+'/outbound/review');
+      const [r,closures]=await Promise.all([
+        api('/api/company/'+encodeURIComponent(cid)+'/outbound/review'),
+        api('/api/company/'+encodeURIComponent(cid)+'/outbound/closures').catch(()=>({items:[]}))
+      ]);
       if(cid!==companyId||seq!==outboundLoadSeq)return;
       const items=Array.isArray(r.items)?r.items:[];
+      outboundCloseAllowed=r.manualCloseEnabled===true&&String(currentUser?.role||'').toUpperCase()==='SUPERADMIN';
+      outboundClosureRequests=new Map((closures.items||[]).map(x=>[x.requestId,x]));
       $('outboundProtectionStatus').textContent=r.enabled
         ?'La protección de entregas está activada. Los envíos inciertos requieren verificación antes de cualquier nueva acción.'
         :'La protección de entregas todavía NO está activada. Este listado sirve para preparar el procedimiento de revisión.';
       $('outboundCount').textContent=items.length+' casos para revisar';
+      $('outboundClosures').innerHTML=(closures.items||[]).length?(closures.items||[]).map(x=>
+        '<div class="data-row"><strong>'+esc(x.status)+'</strong> · Envío '+esc(String(x.deliveryId).slice(0,12))+
+        ' · '+esc(outboundDate(x.createdAt))+
+        '<p>'+esc(x.note)+'</p>'+
+        (outboundCloseAllowed&&x.status==='REVIEW_REQUIRED'
+          ?'<button class="soft" data-request-id="'+esc(x.requestId)+'" type="button" onclick="retryOutboundClose(this)">Conciliar con la misma solicitud</button>'
+          :'')+'</div>'
+      ).join(''):'<div class="empty">Todavía no hay solicitudes de cierre.</div>';
       $('outboundStatus').textContent='';
       $('outboundTable').innerHTML=items.length?items.map(x=>{
         const last=x.latest;
@@ -2386,6 +2406,13 @@
          '<textarea class="outbound-note" rows="2" maxlength="600" placeholder="Explicá qué consultaste y qué resultado obtuviste"></textarea></div>'+
          '<div class="order-actions"><button class="soft" type="button" onclick="saveOutboundObservation(this)">Registrar revisión</button>'+
          '<button class="soft" type="button" onclick="loadOutboundHistory(this)">Ver historial</button></div>'+
+         (outboundCloseAllowed?
+           '<details class="outbound-manual-close"><summary>Cierre supervisado SIN reenvío (SUPERADMIN)</summary>'+
+           '<p class="mini-note">Primero verificá el pedido, pago y situación del cliente. El mensaje de entrada se cerrará definitivamente, sin procesarlo otra vez.</p>'+
+           '<label><input type="checkbox" class="outbound-business-verified"> Verifiqué el estado comercial y los pedidos involucrados</label>'+
+           '<label><input type="checkbox" class="outbound-customer-verified"> Verifiqué con el cliente qué información recibió y cómo continuar</label>'+
+           '<textarea class="outbound-close-note" maxlength="600" rows="2" placeholder="Motivo concreto del cierre sin reenvío"></textarea>'+
+           '<button class="soft" type="button" onclick="executeOutboundClose(this)">Solicitar cierre sin reenvío</button></details>':'')+
          '<div class="outbound-history mini-note"></div></article>';
       }).join(''):'<div class="empty">No hay registros de entrega pendientes de revisión para esta empresa.</div>';
     }catch(e){
@@ -2396,6 +2423,42 @@
       $('outboundCount').textContent='';
     }
   }
+  async function executeOutboundClose(button,provided=null){
+    const cid=companyId;
+    if(!outboundCloseAllowed||String(currentUser?.role||'').toUpperCase()!=='SUPERADMIN')return;
+    const card=provided?null:button.closest('[data-outbound-id]');
+    const id=provided?.deliveryId||card?.dataset.outboundId;
+    if(!/^[a-f0-9]{64}$/.test(id||''))return;
+    const checkBusiness=provided?true:card.querySelector('.outbound-business-verified').checked;
+    const checkCustomer=provided?true:card.querySelector('.outbound-customer-verified').checked;
+    const note=provided?.note||card?.querySelector('.outbound-close-note')?.value?.trim()||'';
+    if(!checkBusiness||!checkCustomer||note.length<20||note.length>600){
+      showNotice('Completá ambas verificaciones y escribí el motivo (20–600 caracteres).');return;
+    }
+    const confirmation=window.prompt('Para cerrar la entrada SIN reenviar WhatsApp, escribí exactamente: CERRAR_SIN_REENVIO');
+    if(confirmation!=='CERRAR_SIN_REENVIO')return;
+    if(!window.confirm('¿Confirmás que verificaste pedidos y cliente? El bot NO volverá a procesar el mensaje de origen.'))return;
+    const requestId=provided?.requestId||(card.dataset.requestId||(card.dataset.requestId=crypto.randomUUID()));
+    button.disabled=true;
+    try{
+      const result=await api('/api/company/'+encodeURIComponent(cid)+'/outbound/'+encodeURIComponent(id)+'/manual-close',{
+        method:'POST',body:JSON.stringify({
+          requestId,note,verifiedBusinessState:true,verifiedCustomerContact:true,confirmation
+        })
+      });
+      if(cid!==companyId)return;
+      showNotice('Cierre supervisado registrado. No se reenvió ningún WhatsApp.');
+      await loadOutboundReviews();
+    }catch(e){
+      if(cid===companyId)showNotice('No se confirmó el cierre. Conservá la solicitud '+requestId+' y conciliá antes de reintentar: '+String(e.message||e));
+    }finally{button.disabled=false;}
+  }
+  function retryOutboundClose(button){
+    const item=outboundClosureRequests.get(button.dataset.requestId);
+    if(!item||item.status!=='REVIEW_REQUIRED')return;
+    executeOutboundClose(button,item);
+  }
+
   async function saveOutboundObservation(button){
     const card=button.closest('[data-outbound-id]'),id=card?.dataset.outboundId,cid=companyId;
     if(!card||!/^[a-f0-9]{64}$/.test(id||''))return;
