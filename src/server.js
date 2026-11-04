@@ -6,6 +6,7 @@ import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
 import {addOutboundReviewNote,latestOutboundReviewNotes,outboundReviewHistory} from './outbound_reviews.js';
+import {validateClosureInput,registerClosureRequest,setClosureResult,listClosureRequests} from './outbound_closures.js';
 import {listCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,commercialFollowupHistory,getCommercialReminders} from './commercial_followups.js';
 import {loginThrottleKey,consumeLoginAttempt,clearLoginAttempts} from './login_throttle.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
@@ -1420,11 +1421,59 @@ app.get('/api/company/:companyId/outbound/review',authRequired,companyAccessRequ
    const items=Array.isArray(result.items)?result.items:[];
    if(items.length>100)throw Error('Resultados de revisión demasiado numerosos.');
    const latest=await latestOutboundReviewNotes(pool,req.params.companyId,items.map(x=>x.id));
-   res.json({ok:true,enabled:result.enabled===true,items:items.map(x=>({...x,latest:latest[x.id]||null}))});
+   res.json({ok:true,enabled:result.enabled===true,manualCloseEnabled:result.manualCloseEnabled===true,items:items.map(x=>({...x,latest:latest[x.id]||null}))});
  }catch{
    res.status(503).json({ok:false,error:'No se pudo consultar el motor. No se modificó ningún envío.'});
  }
 });
+// Only a superadmin can request irreversible closure of an uncertain inbound.
+// The initial audit is persisted in Postgres BEFORE attempting the motor action.
+// Retry always uses the same UUID, allowing reconciliation after an HTTP timeout.
+app.get('/api/company/:companyId/outbound/closures',authRequired,companyAccessRequired,async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ try{res.json({ok:true,items:await listClosureRequests(pool,req.params.companyId)});}
+ catch{res.status(503).json({ok:false,error:'No se pudo consultar el historial de cierres.'});}
+});
+app.post('/api/company/:companyId/outbound/:deliveryId/manual-close',authRequired,requireSuperadmin,async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ let input;
+ try{
+   input=validateClosureInput(req.params.companyId,req.params.deliveryId,req.body||{},req.session?.uid);
+ }catch(e){return res.status(400).json({ok:false,error:String(e.message||e)});}
+ try{
+   const review=await postMotor('/admin/outbound/review/company',{companyId:input.companyId},10000);
+   if(review.manualCloseEnabled!==true)
+     return res.status(423).json({ok:false,error:'El cierre manual sigue desactivado hasta terminar las pruebas con Meta.'});
+   const owned=(Array.isArray(review.items)&&review.items.some(x=>x.id===input.deliveryId))||
+     (Array.isArray(review.recentlyClosed)&&review.recentlyClosed.some(x=>x.deliveryId===input.deliveryId&&x.requestId===input.requestId));
+   if(!owned)return res.status(404).json({ok:false,error:'La entrega no pertenece a los casos en revisión de esta empresa.'});
+   const audit=await latestOutboundReviewNotes(pool,input.companyId,[input.deliveryId]);
+   if(!audit[input.deliveryId]||audit[input.deliveryId].resultado==='EN_REVISION')
+     return res.status(409).json({ok:false,error:'Primero registrá el resultado de la comprobación del envío.'});
+   const request=await registerClosureRequest(pool,input);
+   if(request.status==='COMPLETED')return res.json({ok:true,alreadyClosed:true,requestId:request.id});
+   try{
+     const completed=await postMotor('/admin/outbound/review/company/manual-close',{
+       companyId:input.companyId,deliveryId:input.deliveryId,requestId:input.requestId,
+       operatorUid:String(input.actorUid),
+       verifiedBusinessState:true,verifiedCustomerContact:true,confirmation:'CERRAR_SIN_REENVIO'
+     },10000);
+     if(completed.closed!==true)throw Error('El motor no confirmó el cierre.');
+     await setClosureResult(pool,request.id,'COMPLETED');
+     return res.json({ok:true,closed:true,alreadyClosed:completed.alreadyClosed===true,requestId:request.id});
+   }catch{
+     // The motor may have persisted its result before a network error: never
+     // create another request ID or resend WhatsApp to 'fix' the ambiguity.
+     await setClosureResult(pool,request.id,'REVIEW_REQUIRED');
+     return res.status(503).json({ok:false,error:'El cierre quedó pendiente de conciliación. Reintentá con el MISMO identificador de solicitud.',requestId:request.id});
+   }
+ }catch(e){
+   const msg=String(e.message||e);
+   const invalid=/solicitud|identificador.*otra/.test(msg.toLowerCase());
+   return res.status(invalid?409:503).json({ok:false,error:invalid?'El identificador corresponde a otra revisión.': 'No se pudo preparar el cierre; no se envió ningún WhatsApp.'});
+ }
+});
+
 app.get('/api/company/:companyId/outbound/:deliveryId/history',authRequired,companyAccessRequired,async(req,res)=>{
  res.set('Cache-Control','no-store');
  try{res.json({ok:true,items:await outboundReviewHistory(pool,req.params.companyId,req.params.deliveryId)});}
