@@ -65,5 +65,6 @@ test('backup cron syntax, fail-closed variables and restore target restricted to
  assert.doesNotMatch(sh,/pg_restore[^\n]*DATABASE_URL/);
  assert.match(image,/FROM postgres:18-alpine/);
  assert.match(image,/aws-cli/);
+ assert.match(image,/su-exec/);
  assert.match(image,/backup\.sh/);
 });
