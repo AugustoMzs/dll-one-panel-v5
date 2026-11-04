@@ -731,6 +731,7 @@
         <button data-tab="receipts" onclick="go('receipts',this)">📎 Comprobantes <span class="notice-badge" data-notice="receipts" hidden></span></button>
         <button data-tab="customers" onclick="go('customers',this)">👥 Clientes</button>
         <button data-tab="commercial" onclick="go('commercial',this)">📋 Seguimiento comercial</button>
+        <button data-tab="outbound" onclick="go('outbound',this)">🔎 Entregas en revisión</button>
         <button data-tab="business" onclick="go('business',this)">🏢 Mi negocio</button>
         <button class="admin-only hidden-admin" data-tab="products" onclick="go('products')">▦ Categorías ONE</button>
         <button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)">💲 ONE Ventas</button>
@@ -887,6 +888,18 @@
             <div class="table-head"><h3>Clientes</h3><span id="countCustomers" class="sync"></span></div>
             <div id="customersTable" class="table-wrap"></div>
           </div>
+        </section>
+
+        <section id="outbound" class="section">
+          <div class="hero"><div><h1>Entregas en revisión</h1><p>Casos en los que Meta no confirmó claramente un envío de WhatsApp. No se reenvía ningún mensaje desde esta pantalla.</p></div></div>
+          <div class="card">
+            <h3 class="card-title">Estado de la protección de envíos</h3>
+            <p id="outboundProtectionStatus" class="mini-note" role="status">Consultando estado…</p>
+            <p class="mini-note">La revisión registra lo que verificó un operador. No desbloquea automáticamente conversaciones, no modifica pedidos ni marca un mensaje como entregado.</p>
+            <div class="actions-row"><button type="button" class="btn" onclick="loadOutboundReviews()">Actualizar listado</button><span id="outboundCount" class="sync"></span></div>
+            <p id="outboundStatus" role="status" aria-live="polite"></p>
+          </div>
+          <div id="outboundTable" class="orders-grid"></div>
         </section>
 
         <section id="commercial" class="section">
@@ -1345,6 +1358,7 @@
           <div class="hero"><div><h1>Más</h1><p>Configuración y administración.</p><button class="btn btn-light" onclick="go('receipts')">📎 Comprobantes <span class="notice-badge" data-notice="receipts" hidden></span></button></div></div>
           <div class="more-grid">
             <button class="more-card" onclick="go('business')">🏢<strong>Mi negocio</strong><small>Datos generales y módulos.</small></button>
+            <button class="more-card" onclick="go('outbound')">🔎<strong>Entregas en revisión</strong><small>Consultar y documentar envíos inciertos.</small></button>
             <button class="more-card admin-only hidden-admin" onclick="go('products')">▦<strong>Categorías ONE</strong><small>Salud, Gastro, Ventas y Eventos.</small></button>
             <button id="moreCatalog" class="more-card" onclick="go('catalog')">💲<strong>ONE Ventas</strong><small>Productos, servicios y listas de precios.</small></button>
             <button id="moreHealth" class="more-card" onclick="go('health')">🏥<strong>ONE Salud</strong><small>Agenda y turnos.</small></button>
@@ -1590,6 +1604,7 @@
   async function changeCompany(){
     companyId=$('companySelect').value;
     commercialOffset=0;commercialItems.clear();
+    outboundLoadSeq++;
     salesRevision=null;catalogItems=[];clearCatalogForm();
     resetSalesTools();
     resetDeliveryView();
@@ -1631,7 +1646,7 @@
 
   async function loadTab(tab){
     if(resolveModuleTab(tab)!==tab)return go(resolveModuleTab(tab));
-    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','commercial','receipts','business','catalog','gastro','health','events']);
+    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','commercial','outbound','receipts','business','catalog','gastro','health','events']);
     if(companyTabs.has(tab)&&!companyId){
       if(String(currentUser?.role||'').toUpperCase()==='SUPERADMIN'){
         await go('admin');
@@ -1649,6 +1664,7 @@
       if(tab==='delivery')await loadDelivery();
       if(tab==='customers')await loadCustomers();
       if(tab==='commercial')await loadCommercialFollowups();
+      if(tab==='outbound')await loadOutboundReviews();
       if(tab==='receipts')await loadReceipts();
       if(tab==='business')await Promise.all([loadBusiness(),loadOrderHours(),loadBotInstructions(),loadPayments(),loadBusinessAdmin()]);
       if(tab==='catalog')await loadCatalog();
@@ -2334,6 +2350,82 @@
         ' · '+esc(x.antes?.estado||'—')+' → '+esc(x.despues?.estado||'—')+'</div>').join(''):
         '<div class="mini-note">Sin cambios anteriores.</div>';
     }catch{target.textContent='No se pudo cargar el historial.';}
+  }
+
+  let outboundLoadSeq=0;
+  const outboundDate=value=>{
+    const d=new Date(value);
+    return Number.isFinite(d.getTime())?d.toLocaleString('es-AR'):'Fecha no disponible';
+  };
+  async function loadOutboundReviews(){
+    const cid=companyId,seq=++outboundLoadSeq;
+    if(!cid){$('outboundTable').replaceChildren();throw Error('Seleccioná una empresa.');}
+    $('outboundStatus').textContent='Consultando casos pendientes…';
+    try{
+      const r=await api('/api/company/'+encodeURIComponent(cid)+'/outbound/review');
+      if(cid!==companyId||seq!==outboundLoadSeq)return;
+      const items=Array.isArray(r.items)?r.items:[];
+      $('outboundProtectionStatus').textContent=r.enabled
+        ?'La protección de entregas está activada. Los envíos inciertos requieren verificación antes de cualquier nueva acción.'
+        :'La protección de entregas todavía NO está activada. Este listado sirve para preparar el procedimiento de revisión.';
+      $('outboundCount').textContent=items.length+' casos para revisar';
+      $('outboundStatus').textContent='';
+      $('outboundTable').innerHTML=items.length?items.map(x=>{
+        const last=x.latest;
+        return '<article class="order-card" data-outbound-id="'+esc(x.id)+'">'+
+         '<div class="order-card-head"><div><div class="order-id">Envío '+esc(String(x.id).slice(0,12))+'</div>'+
+         '<div class="order-client">Mensaje de origen: '+esc(x.sourceWamid||'No disponible')+'</div></div><span class="status-chip">'+esc(x.status)+'</span></div>'+
+         '<p class="mini-note">Tipo: '+esc(x.kind||'—')+' · Paso: '+esc(x.step||'—')+' · Motivo: '+esc(x.reason||'Sin detalle')+'</p>'+
+         '<p class="mini-note">Último cambio: '+esc(outboundDate(x.lastChangedAt))+'</p>'+
+         (last?'<p class="mini-note">Última revisión: '+esc(last.resultado)+' · '+esc(last.operador)+' · '+esc(outboundDate(last.fecha))+'</p>':'')+
+         '<div class="form-field"><label>Resultado de la comprobación</label><select class="outbound-finding">'+
+         '<option value="EN_REVISION">En revisión</option>'+
+         '<option value="INDICIOS_DE_ACEPTACION">Indicios de aceptación por Meta (no equivale a entregado)</option>'+
+         '<option value="NO_SE_PUDO_VERIFICAR">No se pudo verificar</option></select></div>'+
+         '<div class="form-field"><label>Qué comprobaste (sin contraseñas ni datos sensibles)</label>'+
+         '<textarea class="outbound-note" rows="2" maxlength="600" placeholder="Explicá qué consultaste y qué resultado obtuviste"></textarea></div>'+
+         '<div class="order-actions"><button class="soft" type="button" onclick="saveOutboundObservation(this)">Registrar revisión</button>'+
+         '<button class="soft" type="button" onclick="loadOutboundHistory(this)">Ver historial</button></div>'+
+         '<div class="outbound-history mini-note"></div></article>';
+      }).join(''):'<div class="empty">No hay registros de entrega pendientes de revisión para esta empresa.</div>';
+    }catch(e){
+      if(cid!==companyId||seq!==outboundLoadSeq)return;
+      $('outboundStatus').textContent='No se pudo consultar el motor: '+String(e.message||e);
+      $('outboundProtectionStatus').textContent='Estado no verificable.';
+      $('outboundTable').replaceChildren();
+      $('outboundCount').textContent='';
+    }
+  }
+  async function saveOutboundObservation(button){
+    const card=button.closest('[data-outbound-id]'),id=card?.dataset.outboundId,cid=companyId;
+    if(!card||!/^[a-f0-9]{64}$/.test(id||''))return;
+    const note=card.querySelector('.outbound-note').value.trim();
+    if(note.length<10||note.length>600){showNotice('Describí la comprobación con 10 a 600 caracteres.');return;}
+    const finding=card.querySelector('.outbound-finding').value;
+    button.disabled=true;
+    try{
+      await api('/api/company/'+encodeURIComponent(cid)+'/outbound/'+encodeURIComponent(id)+'/observation',{
+        method:'POST',body:JSON.stringify({finding,note})
+      });
+      if(cid!==companyId)return;
+      showNotice('Revisión registrada. No se ha reenviado ni desbloqueado ningún mensaje.');
+      await loadOutboundReviews();
+    }catch(e){if(cid===companyId)showNotice('No se guardó la revisión: '+String(e.message||e));}
+    finally{button.disabled=false;}
+  }
+  async function loadOutboundHistory(button){
+    const card=button.closest('[data-outbound-id]'),id=card?.dataset.outboundId,cid=companyId;
+    if(!card||!/^[a-f0-9]{64}$/.test(id||''))return;
+    const target=card.querySelector('.outbound-history');
+    target.textContent='Consultando historial…';
+    try{
+      const r=await api('/api/company/'+encodeURIComponent(cid)+'/outbound/'+encodeURIComponent(id)+'/history');
+      if(cid!==companyId||!card.isConnected)return;
+      target.innerHTML=(r.items||[]).length?r.items.map(x=>
+        '<div class="data-row"><strong>'+esc(x.resultado)+'</strong> · '+esc(x.operador)+
+        ' · '+esc(outboundDate(x.fecha))+'<p>'+esc(x.observacion)+'</p></div>'
+      ).join(''):'<p>Todavía no hay revisiones registradas.</p>';
+    }catch{if(cid===companyId&&card.isConnected)target.textContent='No se pudo consultar el historial.';}
   }
 
   async function loadOrders(){

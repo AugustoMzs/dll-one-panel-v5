@@ -5,6 +5,7 @@ import {initSalesTools} from './sales_tools.js';
 import {salesToolsRouter} from './sales_tools_routes.js';
 import {businessAdminRouter} from './business_admin_routes.js';
 import {requireCompanyOperation} from './operation_access.js';
+import {addOutboundReviewNote,latestOutboundReviewNotes,outboundReviewHistory} from './outbound_reviews.js';
 import {listCommercialFollowups,createCommercialFollowup,updateCommercialFollowup,commercialFollowupHistory,getCommercialReminders} from './commercial_followups.js';
 import {loginThrottleKey,consumeLoginAttempt,clearLoginAttempts} from './login_throttle.js';
 import {editDirectOrder,listOrderEdits} from './order_edits.js';
@@ -1409,6 +1410,40 @@ app.use(
   requireConfiguredModule(getCompany)
 );
 
+
+// Operator-facing outbound review is strictly scoped by BOTH panel user permissions
+// and the motor's trusted company-to-number configuration. No resend endpoint.
+app.get('/api/company/:companyId/outbound/review',authRequired,companyAccessRequired,async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ try{
+   const result=await postMotor('/admin/outbound/review/company',{companyId:req.params.companyId},10000);
+   const items=Array.isArray(result.items)?result.items:[];
+   if(items.length>100)throw Error('Resultados de revisión demasiado numerosos.');
+   const latest=await latestOutboundReviewNotes(pool,req.params.companyId,items.map(x=>x.id));
+   res.json({ok:true,enabled:result.enabled===true,items:items.map(x=>({...x,latest:latest[x.id]||null}))});
+ }catch{
+   res.status(503).json({ok:false,error:'No se pudo consultar el motor. No se modificó ningún envío.'});
+ }
+});
+app.get('/api/company/:companyId/outbound/:deliveryId/history',authRequired,companyAccessRequired,async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ try{res.json({ok:true,items:await outboundReviewHistory(pool,req.params.companyId,req.params.deliveryId)});}
+ catch{res.status(400).json({ok:false,error:'Identificador de entrega inválido.'});}
+});
+app.post('/api/company/:companyId/outbound/:deliveryId/observation',authRequired,canOperate,async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ try{
+   const motor=await postMotor('/admin/outbound/review/company',{companyId:req.params.companyId},10000);
+   if(!Array.isArray(motor.items)||!motor.items.some(x=>x.id===req.params.deliveryId))
+     return res.status(404).json({ok:false,error:'Esta entrega no figura como pendiente de revisión para la empresa.'});
+   const observation=await addOutboundReviewNote(pool,req.params.companyId,req.params.deliveryId,req.body||{},
+     String(req.session?.sub||req.session?.uid||'PANEL'));
+   return res.status(201).json({ok:true,observation});
+ }catch(e){
+   const invalid=/inválid|Describí|Formulario/.test(String(e.message||''));
+   res.status(invalid?400:503).json({ok:false,error:invalid?String(e.message):'No se pudo registrar la revisión; el envío no fue modificado.'});
+ }
+});
 
 app.get('/api/company/:companyId/commercial/reminders',authRequired,companyAccessRequired,async(req,res)=>{
   res.set('Cache-Control','no-store');
