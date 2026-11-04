@@ -12,6 +12,7 @@ import {initLoginThrottle} from './login_throttle.js';
 import {initOrderActions,transitionOrder} from './order_actions.js';
 import {initOrderEdits} from './order_edits.js';
 import {initOutboundReviewNotes} from './outbound_reviews.js';
+import {initOutboundClosures} from './outbound_closures.js';
 import pg from "pg";
 
 const { Pool } = pg;
@@ -44,6 +45,7 @@ export async function initDb() {
   await initNotifications(pool);
   await initLoginThrottle(pool);
   await initOutboundReviewNotes(pool);
+  await initOutboundClosures(pool);
   // Configuración de retiro independiente de los snapshots de Apps Script.
   await pool.query(`CREATE TABLE IF NOT EXISTS panel_pickup_settings (
     company_id TEXT PRIMARY KEY,
