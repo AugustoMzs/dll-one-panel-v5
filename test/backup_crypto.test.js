@@ -62,6 +62,8 @@ test('backup cron syntax, fail-closed variables and restore target restricted to
  assert.match(sh,/su-exec postgres initdb/);
  assert.match(sh,/tables_restored=/);
  assert.match(sh,/\.verified\.txt/);
+ assert.match(sh,/Required tool unavailable/);
+ assert.match(sh,/panel_companies','panel_users','panel_orders/);
  assert.doesNotMatch(sh,/pg_restore[^\n]*DATABASE_URL/);
  assert.match(image,/FROM postgres:18-alpine/);
  assert.match(image,/aws-cli/);
