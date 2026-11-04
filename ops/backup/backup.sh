@@ -10,6 +10,14 @@ umask 077
 : "${BACKUP_AES256_KEY:?Missing AES256 encryption key}"
 AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-auto}"
 export AWS_DEFAULT_REGION
+# Fail immediately if a required binary is missing; do not upload an
+# encrypted object that can never pass scratch restore.
+for command in pg_dump pg_restore psql initdb pg_ctl su-exec node aws sha256sum; do
+ if ! command -v "$command" >/dev/null 2>&1; then
+   echo "[BACKUP] Required tool unavailable: $command" >&2
+   exit 1
+ fi
+done
 
 work="$(mktemp -d /tmp/dllone-backup.XXXXXXXX)"
 pg_started=0
@@ -53,6 +61,11 @@ case "$table_count" in
 esac
 if [ "$table_count" -lt 1 ]; then
  echo "[BACKUP] Scratch restoration contains no application tables." >&2;exit 1
+fi
+required_tables="$(psql --host="$work" --port=55432 --username=postgres --dbname=postgres --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename IN ('panel_companies','panel_users','panel_orders')")"
+if [ "$required_tables" != "3" ]; then
+ echo "[BACKUP] Scratch restore is missing a critical application table." >&2
+ exit 1
 fi
 printf 'format=DLLONE-PG-CUSTOM-AES256-GCM-v1\narchive=%s\nsha256=%s\nverified_at=%s\ntables_restored=%s\n' \
  "$key" "$encrypted_hash" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$table_count" > "$work/verified.txt"
