@@ -686,6 +686,7 @@
 @media(max-width:760px){#noticeSoundButton{font-size:11px;padding:8px}.notice-status{max-width:170px}.conversation-name .notice-badge{height:18px;font-size:10px}}
 .hours-day{padding:14px 0;border-bottom:1px solid #dde5dd;display:grid;gap:10px;grid-template-columns:100px 1fr auto;align-items:start}.hours-slot{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;align-items:end}.hours-slot label{display:grid;gap:4px}.hours-slot input{max-width:155px}@media(max-width:650px){.hours-day{grid-template-columns:1fr}.hours-day>button{justify-self:start}}
 </style>
+  <link rel="stylesheet" href="/panel-design.css">
 </head>
 <body>
   <div id="login" class="login">
@@ -719,38 +720,17 @@
         <img src="/logo.png" alt="DLL ONE" onerror="this.style.display='none'">
         <div>
           <strong>DLL ONE</strong>
-          <small>Panel Cloud V5.8.7</small>
+          <small>Tu centro de operaciones</small>
         </div>
       </div>
 
-      <div class="nav">
-        <button class="active" data-tab="dashboard" onclick="go('dashboard',this)">⌂ Dashboard<span class="notice-badge" data-notice="dashboard" hidden></span></button>
-        <button data-tab="conversations" onclick="go('conversations',this)">💬 Conversaciones<span class="notice-badge" data-notice="conversations" hidden></span></button>
-        <button data-tab="orders" onclick="go('orders',this)">🧾 Pedidos<span class="notice-badge" data-notice="orders" hidden></span></button>
-        <button data-tab="delivery" onclick="go('delivery',this)">🚚 Delivery<span class="notice-badge" data-notice="delivery" hidden></span></button>
-        <button data-tab="receipts" onclick="go('receipts',this)">📎 Comprobantes <span class="notice-badge" data-notice="receipts" hidden></span></button>
-        <button data-tab="customers" onclick="go('customers',this)">👥 Clientes</button>
-        <button data-tab="commercial" onclick="go('commercial',this)">📋 Seguimiento comercial</button>
-        <button data-tab="outbound" onclick="go('outbound',this)">🔎 Entregas en revisión</button>
-        <button data-tab="business" onclick="go('business',this)">🏢 Mi negocio</button>
-        <button class="admin-only hidden-admin" data-tab="products" onclick="go('products')">▦ Categorías ONE</button>
-        <button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)">💲 ONE Ventas</button>
-        <button id="navGastro" data-tab="gastro" onclick="go('gastro',this)">🍔 ONE Gastro</button>
-        <button id="navHealth" data-tab="health" onclick="go('health',this)" style="display:none">🏥 ONE Salud</button>
-        <button id="navEvents" data-tab="events" onclick="go('events')" style="display:none">🎟 ONE Eventos</button>
-        <button id="navAdmin" class="admin-only hidden-admin" data-tab="admin" onclick="go('admin',this)">⚙ Super Admin</button>
-      </div>
-
-      <div class="soon">
-        <strong style="color:#fff">DLL ONE Salud</strong><br>
-        La arquitectura V5 queda preparada para agregar Turnos como módulo separado, sin mezclar lógica clínica con Gastro.
-      </div>
+<nav class="nav" aria-label="Navegación principal"><div class="nav-group"><p class="nav-heading">Tu espacio</p><button class="active" data-tab="dashboard" onclick="go('dashboard',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 3l9 7v11h-6v-7H9v7H3Z"/></svg><span>Inicio</span><span class="notice-badge" data-notice="dashboard" hidden></span></button></div><div class="nav-group"><p class="nav-heading">Operación</p><button data-tab="conversations" onclick="go('conversations',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/></svg><span>Conversaciones</span><span class="notice-badge" data-notice="conversations" hidden></span></button><button data-tab="orders" onclick="go('orders',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v19l-4-2-3 2-3-2-4 2ZM8 8h8M8 12h8M8 16h5"/></svg><span>Pedidos</span><span class="notice-badge" data-notice="orders" hidden></span></button><button data-tab="delivery" onclick="go('delivery',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h11v12H3ZM14 10h4l3 4v3h-7M6 17v3M18 17v3"/></svg><span>Delivery</span><span class="notice-badge" data-notice="delivery" hidden></span></button><button data-tab="receipts" onclick="go('receipts',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9"/></svg><span>Comprobantes </span><span class="notice-badge" data-notice="receipts" hidden></span></button><button data-tab="outbound" onclick="go('outbound',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM17 17l5 5M11 7v5M11 15h.01"/></svg><span>Entregas en revisión</span></button></div><div class="nav-group"><p class="nav-heading">Clientes</p><button data-tab="customers" onclick="go('customers',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM1 21v-3a7 7 0 0 1 14 0v3M16 4a4 4 0 0 1 0 8M18 15a5 5 0 0 1 5 5v1"/></svg><span>Clientes</span></button><button data-tab="commercial" onclick="go('commercial',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18H4ZM8 8h8M8 12h8M8 16h5"/></svg><span>Seguimiento comercial</span></button></div><div class="nav-group"><p class="nav-heading">Módulos ONE</p><button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8l11 11-8 8L3 11ZM7 7h.01"/></svg><span>ONE Ventas</span></button><button id="navGastro" data-tab="gastro" onclick="go('gastro',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v19M20 3c-5 3-5 8 0 10v9M20 3v10"/></svg><span>ONE Gastro</span></button><button id="navHealth" data-tab="health" onclick="go('health',this)" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z"/></svg><span>ONE Salud</span></button><button id="navEvents" data-tab="events" onclick="go('events')" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4ZM8 2v6M16 2v6M4 11h16M8 15h2M14 15h2"/></svg><span>ONE Eventos</span></button></div><div class="nav-group"><p class="nav-heading">Administración</p><button data-tab="business" onclick="go('business',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V4h12v17M15 10h6v11M7 8h4M7 12h4M7 16h4M1 21h22"/></svg><span>Mi negocio</span></button><button class="admin-only hidden-admin" data-tab="products" onclick="go('products')"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z"/></svg><span>Categorías ONE</span></button><button id="navAdmin" class="admin-only hidden-admin" data-tab="admin" onclick="go('admin',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M9 15v6"/></svg><span>Super Admin</span></button></div></nav><div class="sidebar-footer"><span class="brand-dot"></span> Un espacio para tu negocio</div>
     </aside>
 
     <main>
       <header>
         <div class="head-left">
-          <select id="companySelect" class="company" onchange="changeCompany()"></select>
+          <select aria-label="Empresa activa" id="companySelect" class="company" onchange="changeCompany()"></select>
           <div>
             <div id="syncText" class="sync">Sin sincronizar</div><div id="noticeStatus" class="notice-status" role="status">Avisos pendientes de conexión</div>
           </div>
@@ -767,7 +747,7 @@
           <div class="hero">
             <div>
               <h1 id="companyTitle">Panel Central</h1>
-              <p>Revisá los pedidos, conversaciones y tareas pendientes de tu negocio.</p>
+              <p>Todo lo importante de tu negocio, en un solo lugar.</p>
             </div>
             <span class="pill">● PANEL CENTRAL</span>
           </div>
@@ -781,8 +761,8 @@
           </div>
 
           <div class="card">
-            <strong>Pendientes del negocio</strong>
-            <p style="color:var(--muted)">Los avisos se actualizan cada pocos segundos, aunque estés en otra sección. Las conversaciones respondidas por el bot también cuentan hasta que las revises. Los pedidos y delivery siguen pendientes hasta que los resuelvas.</p>
+            <div class="eyebrow">TU PRÓXIMO PASO</div><h2>Pendientes del negocio</h2>
+            <p style="color:var(--muted)">Revisá las conversaciones y resolvé los pedidos que necesitan tu atención.</p>
             <div id="pendingTasks" class="tasks-grid"></div>
             <p style="color:var(--muted);font-size:12px">Activá el sonido con el botón superior. Para recibir avisos, mantené abierto el panel; el navegador puede pausar la actualización si el equipo entra en reposo.</p>
           </div>
@@ -790,8 +770,8 @@
 
         <section id="conversations" class="section">
           <div class="hero">
-            <div><h1>Conversaciones</h1><p>Conversaciones directas: PostgreSQL + Motor Railway, sin Apps Script.</p></div>
-            <span class="pill">● OPERACIÓN DIRECTA</span>
+            <div><h1>Conversaciones</h1><p>Atendé a tus clientes y seguí cada conversación desde un mismo lugar.</p></div>
+            <span class="pill">● CONVERSACIONES</span>
           </div>
 
           <div class="card conversation-shell">
@@ -1362,6 +1342,7 @@
         <section id="more" class="section">
           <div class="hero"><div><h1>Más</h1><p>Configuración y administración.</p><button class="btn btn-light" onclick="go('receipts')">📎 Comprobantes <span class="notice-badge" data-notice="receipts" hidden></span></button></div></div>
           <div class="more-grid">
+            <button class="more-card" onclick="go('commercial')">📋<strong>Seguimiento comercial</strong><small>Consultas, presupuestos y oportunidades.</small></button>
             <button class="more-card" onclick="go('business')">🏢<strong>Mi negocio</strong><small>Datos generales y módulos.</small></button>
             <button class="more-card" onclick="go('outbound')">🔎<strong>Entregas en revisión</strong><small>Consultar y documentar envíos inciertos.</small></button>
             <button class="more-card admin-only hidden-admin" onclick="go('products')">▦<strong>Categorías ONE</strong><small>Salud, Gastro, Ventas y Eventos.</small></button>
@@ -1644,6 +1625,7 @@
     $(tab).classList.add('active');
     document.querySelectorAll('.nav button,.mobile-bottom-nav button').forEach(x=>{
       x.classList.toggle('active',x.dataset.tab===tab);
+      if(x.dataset.tab===tab)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');
     });
     window.scrollTo({top:0,behavior:'smooth'});
     await loadTab(tab);
@@ -3018,6 +3000,8 @@
 </script>
 
   <div id="gMenuLightbox" class="lightbox hidden" onclick="if(event.target===this)closeGastroMenuPreview()"><div class="lightbox-card"><button class="lightbox-close" onclick="closeGastroMenuPreview()">×</button><img id="gMenuPreviewImg" alt="Vista previa del menú"></div></div>
+<script src="/panel-design.js"></script>
 </body>
 </html>
+
 
