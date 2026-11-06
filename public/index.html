@@ -1407,6 +1407,9 @@
   let inboxTimer=null;
   let inboxSearchTimer=null;
   let inboxBusy=false;
+  let inboxRequest=0;
+  let inboxRequestKey='';
+  let ordersRequest=0;
 
   const $=id=>document.getElementById(id);
 
@@ -1589,6 +1592,7 @@
 
   async function changeCompany(){
     companyId=$('companySelect').value;
+    resetOperationViews();
     commercialOffset=0;commercialItems.clear();
     outboundLoadSeq++;outboundCloseAllowed=false;outboundClosureRequests.clear();
     salesRevision=null;catalogItems=[];clearCatalogForm();
@@ -1796,33 +1800,73 @@
     },5000);
   }
 
+  function resetChatView(){
+    threadRequest++;
+    selectedChat=null;
+    $('chatMessages').replaceChildren();
+    $('chatAttachments').replaceChildren();
+    $('chatComposer').value='';
+    $('chatComposer').disabled=true;
+    $('sendChatBtn').disabled=true;
+    $('takeChatBtn').classList.add('hidden');
+    $('returnBotBtn').classList.add('hidden');
+    $('chatClientName').textContent='Cargando conversación…';
+    $('chatClientMeta').textContent='';
+    $('composerNote').textContent='Esperá a que se cargue la conversación.';
+  }
+
+  function resetOperationViews(){
+    inboxRequest++;ordersRequest++;
+    inboxBusy=false;inboxRequestKey='';
+    clearTimeout(inboxSearchTimer);
+    resetChatView();
+    editableOrders.clear();
+    closeOrderEdit();
+    for(const id of ['ordersTable','conversationItems'])$(id).replaceChildren();
+    for(const id of ['countOrders','countConversations'])if($(id))$(id).textContent='';
+    $('chatSearch').value='';
+    $('chatFilter').value='TODOS';
+  }
+
   async function loadConversationsLive(silent=false){
-    if(inboxBusy)return;
-    inboxBusy=true;
     const inboxCompany=companyId;
+    const filter=$('chatFilter')?.value||'TODOS';
+    const q=$('chatSearch')?.value||'';
+    const key=JSON.stringify([inboxCompany,filter,q]);
+    if(inboxBusy&&inboxRequestKey===key)return;
+    const request=++inboxRequest;
+    inboxBusy=true;inboxRequestKey=key;
     try{
-      const filter=$('chatFilter')?.value||'TODOS';
-      const q=$('chatSearch')?.value||'';
       const r=await api(
-        `/api/company/${encodeURIComponent(companyId)}/inbox-live?filter=${encodeURIComponent(filter)}&q=${encodeURIComponent(q)}`
+        `/api/company/${encodeURIComponent(inboxCompany)}/inbox-live?filter=${encodeURIComponent(filter)}&q=${encodeURIComponent(q)}`
       );
-      if(inboxCompany!==companyId)return;
+      if(request!==inboxRequest||inboxCompany!==companyId||filter!==($('chatFilter')?.value||'TODOS')||q!==($('chatSearch')?.value||''))return;
       renderInbox(r.items||[]);
       if(noticeData)paintNotices(noticeData);
     }catch(err){
-      if(!silent)throw err;
+      if(request===inboxRequest&&inboxCompany===companyId&&!silent)throw err;
     }finally{
-      inboxBusy=false;
+      if(request===inboxRequest)inboxBusy=false;
     }
   }
 
   async function openConversation(idCliente){
-    selectedChat={idCliente};
+    if(selectedChat?.idCliente!==idCliente)resetChatView();
+    selectedChat={...(selectedChat||{}),idCliente};
+    const company=companyId;
     $('chatPane').classList.add('mobile-open');
     $('chatEmpty').classList.add('hidden');
     $('chatContent').classList.remove('hidden');
-    await refreshSelectedThread(false);
-    await loadConversationsLive(true);
+    try{
+      await refreshSelectedThread(false);
+      if(company===companyId&&selectedChat?.idCliente===idCliente)await loadConversationsLive(true);
+    }catch(err){
+      if(company===companyId&&selectedChat?.idCliente===idCliente){
+        $('chatClientName').textContent='No se pudo cargar la conversación';
+        $('composerNote').textContent='Volvé a seleccionar el chat para reintentar.';
+        showNotice(err.message||'No se pudo cargar la conversación.');
+      }
+    }
   }
 
   function closeChatMobile(){
@@ -2474,9 +2518,9 @@
   }
 
   async function loadOrders(){
-    const requestedCompany=companyId;
+    const requestedCompany=companyId,request=++ordersRequest;
     const r=await api(`/api/company/${encodeURIComponent(requestedCompany)}/pedidos?filter=PENDIENTES`);
-    if(requestedCompany!==companyId)return;
+    if(requestedCompany!==companyId||request!==ordersRequest)return;
     $('countOrders').textContent=(r.total||0)+' pendientes';
     renderOrders(r.items||[]);
   }
