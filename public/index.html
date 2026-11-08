@@ -822,10 +822,17 @@
 
         <section id="orders" class="section">
           <div class="hero">
-            <div><h1>Pedidos · Cocina</h1><p>Operación directa desde PostgreSQL. Los pedidos nuevos aparecen sin esperar Apps Script.</p></div>
+            <div><h1>Pedidos · Cocina</h1><p>Encontrá cada pedido y seguí su preparación, entrega y cobro.</p></div>
           </div>
           <div class="card table-card">
-            <div class="table-head"><h3>Pedidos por completar o cobrar</h3><span id="countOrders" class="sync"></span></div>
+            <div class="table-head"><h3>Pedidos por completar o cobrar</h3><span id="countOrders" class="sync" role="status" aria-live="polite"></span></div>
+            <div class="form-grid" style="margin-bottom:16px">
+              <div class="form-field full"><label for="orderSearch">Buscar pedido</label><input id="orderSearch" type="search" maxlength="150" placeholder="Número de pedido, cliente, teléfono o producto" oninput="updateOrderFilters()"></div>
+              <div class="form-field"><label for="orderStateFilter">Estado del pedido</label><select id="orderStateFilter" onchange="updateOrderFilters()"><option value="">Todos los estados</option><option value="PENDIENTE_PREPARACION">Por preparar</option><option value="PREPARANDO">En preparación</option><option value="LISTO_RETIRO">Listo para entregar</option><option value="EN_CAMINO">En camino</option><option value="ENTREGADO">Entregado, pendiente de cobro</option></select></div>
+              <div class="form-field"><label for="orderDeliveryFilter">Tipo de entrega</label><select id="orderDeliveryFilter" onchange="updateOrderFilters()"><option value="">Todas las entregas</option><option value="RETIRO">Retiro</option><option value="DELIVERY">Delivery</option></select></div>
+            </div>
+            <div class="actions-row"><button class="btn btn-light" onclick="clearOrderFilters()">Limpiar filtros</button></div>
+            <p class="mini-note">Los filtros se aplican a los últimos 500 pedidos por completar o cobrar. Esta vista no es el historial completo.</p>
             <div id="ordersTable" class="orders-grid"></div>
             <dialog id="orderEditDialog" aria-labelledby="orderEditTitle" style="width:min(94vw,580px);max-height:90vh;overflow:auto;border:1px solid #d9dfe6;border-radius:14px;padding:24px;box-shadow:0 12px 35px #0003">
               <h3 id="orderEditTitle" style="margin-top:0">Editar datos del pedido</h3>
@@ -1368,6 +1375,7 @@
 
   <div id="loading" class="loading hidden">Cargando…</div>
 
+<script src="/order_filters.js"></script>
 <script src="/receipts.js"></script>
 <script src="/order_hours.js"></script>
 <script src="/gastro_migration.js"></script>
@@ -1410,6 +1418,7 @@
   let inboxRequest=0;
   let inboxRequestKey='';
   let ordersRequest=0;
+  let ordersLoaded=[];
 
   const $=id=>document.getElementById(id);
 
@@ -1821,6 +1830,8 @@
     clearTimeout(inboxSearchTimer);
     resetChatView();
     editableOrders.clear();
+    ordersLoaded=[];
+    clearOrderFilters(false);
     closeOrderEdit();
     for(const id of ['ordersTable','conversationItems'])$(id).replaceChildren();
     for(const id of ['countOrders','countConversations'])if($(id))$(id).textContent='';
@@ -2197,11 +2208,21 @@
     finally{btn.disabled=false;}
   }
 
+  function updateOrderFilters(){
+    renderOrders(ordersLoaded);
+  }
+  function clearOrderFilters(render=true){
+    for(const id of ['orderSearch','orderStateFilter','orderDeliveryFilter'])$(id).value='';
+    if(render)updateOrderFilters();
+  }
   function renderOrders(items){
+    ordersLoaded=items;
+    items=DLLOrderFilters.filter(items,{query:$('orderSearch').value,state:$('orderStateFilter').value,delivery:$('orderDeliveryFilter').value});
+    $('countOrders').textContent=items.length+' de '+ordersLoaded.length+' cargados';
     editableOrders=new Map(items.map(x=>[String(x.idPedido),x]));
     const box=$('ordersTable');
     if(!items.length){
-      box.innerHTML='<div class="empty">No hay pedidos activos.</div>';
+      box.innerHTML='<div class="empty">'+(ordersLoaded.length?'No hay pedidos que coincidan con estos filtros.':'No hay pedidos por completar o cobrar.')+'</div>';
       return;
     }
 

@@ -10,7 +10,7 @@ function setup(){
  const c=vm.createContext({companyId:'A',inboxRequest:0,inboxBusy:false,inboxRequestKey:'',ordersRequest:0,threadRequest:0,inboxSearchTimer:null,selectedChat:{idCliente:'old'},editableOrders:new Map([['old',{}]]),noticeData:null,
   $:id=>d.getElementById(id),clearTimeout,encodeURIComponent,
   api:url=>new Promise((resolve,reject)=>requests.push({url,resolve,reject})),
-  renderInbox:items=>rendered.push(items),renderOrders:items=>rendered.push(items),closeOrderEdit(){},showNotice(){},
+  clearOrderFilters(){},renderInbox:items=>rendered.push(items),renderOrders:items=>rendered.push(items),closeOrderEdit(){},showNotice(){},
   refreshSelectedThread:()=>new Promise(()=>{})
  });
  for(const name of ['resetChatView','resetOperationViews','loadConversationsLive','openConversation','loadOrders'])vm.runInContext(fn(name),c);
