@@ -1,3 +1,5 @@
+import {initLodging,lodgingCatalog,lodgingChat} from './lodging.js';
+import {lodgingRouter} from './lodging_routes.js';
 import {initVoiceSettings,getVoiceSettings,saveVoiceSettings,voicePreference} from './voice_settings.js';
 import {initHealthAssistant,healthAssistant} from './health_assistant.js';
 import {initBusinessAdmin,businessRuntime} from './business_admin.js';
@@ -1156,6 +1158,21 @@ app.post('/motor/config-snapshot',authenticateMotorRequest,async(req,res)=>{
 });
 
 
+async function lodgingMotorCompany(req,res){
+ const c=await getCompany(req.body?.companyId);
+ if(!configuredModule(c,'cabanas')||c.service_state!=='ACTIVE'||String(c.phone_number_id)!==String(req.body.phoneNumberId)){res.status(403).json({ok:false,error:'ONE Cabañas no está habilitado.'});return null;}return c;
+}
+app.post('/motor/lodging/chat',authenticateMotorRequest,async(req,res)=>{
+ res.set('Cache-Control','no-store');try{const c=await lodgingMotorCompany(req,res);if(!c)return;
+ res.json({ok:true,...await lodgingChat(pool,c,req.body||{},async prompt=>(await postMotor('/admin/lodging/interpret',{prompt},20000)).interpretation)});
+ }catch{res.status(503).json({ok:false,error:'No se pudo consultar el alojamiento. No hay una reserva confirmada.'});}
+});
+app.post('/motor/lodging/photo',authenticateMotorRequest,async(req,res)=>{
+ res.set('Cache-Control','no-store');try{const c=await lodgingMotorCompany(req,res);if(!c)return;
+ const {items}=await lodgingCatalog(pool,c.company_id);const photo=items.find(x=>x.active&&x.id===req.body.cabinId)?.photos.find(x=>x.id===req.body.photoId);
+ if(!photo)return res.status(404).json({ok:false,error:'Foto no encontrada.'});res.json({ok:true,companyId:c.company_id,...photo});
+ }catch{res.status(503).json({ok:false,error:'No se pudo obtener la foto.'});}
+});
 app.post('/motor/events/chat',authenticateMotorRequest,async(req,res)=>{
  try{const c=await getCompany(req.body?.companyId);if(!configuredModule(c,'eventos')||c.service_state!=='ACTIVE'||String(c.phone_number_id)!==String(req.body.phoneNumberId))return res.status(403).json({ok:false,error:'ONE Eventos no está habilitado.'});
  const response=await eventsChat(pool,c.company_id,req.body||{});res.json({ok:true,response});
@@ -1184,7 +1201,7 @@ app.get('/motor/company/:companyId/service',authenticateMotorRequest,async(req,r
  res.set('Cache-Control','no-store');try{
  const c=await getCompany(req.params.companyId);
  const active=!!c&&c.service_state==='ACTIVE'&&String(c.phone_number_id)===String(req.query.phoneNumberId||'');
- res.json({ok:true,active,voice:active?await getVoiceSettings(pool,c.company_id):{enabled:false},module:active?['eventos','salud','gastro','ventas'].find(key=>configuredModule(c,key))||null:null});
+ res.json({ok:true,active,voice:active?await getVoiceSettings(pool,c.company_id):{enabled:false},module:active?['eventos','salud','gastro','ventas','cabanas'].find(key=>configuredModule(c,key))||null:null});
  }catch{res.status(503).json({ok:false,error:'No se pudo verificar el servicio.'});}
 });
 app.get("/motor/company/:companyId/pickup", authenticateMotorRequest, async (req,res) => {
@@ -1535,6 +1552,7 @@ app.use('/api/company/:companyId/business-admin',businessAdminRouter(pool,getCom
 app.use('/api/company/:companyId/catalog/tools',salesToolsRouter(pool,getCompany));
 app.use('/api/company/:companyId/catalog/imports',salesImportRouter(pool,getCompany));
 app.use('/api/company/:companyId/events',eventsRouter(pool));
+app.use('/api/company/:companyId/lodging',lodgingRouter(pool));
 app.use('/api/company/:companyId/payments',paymentRouter(pool));
 
 // Demo administrative scheduling, isolated from production Gastro and other tenants.
@@ -2628,6 +2646,7 @@ await initHealthDemo(pool);
 await initHealthAssistant(pool);
 await initVoiceSettings(pool);
 await initEvents(pool);
+await initLodging(pool);
 await initPayments(pool);
 let paymentFlushBusy=false;
 setInterval(async()=>{if(paymentFlushBusy)return;paymentFlushBusy=true;try{await flushPaymentNotifications(pool,body=>postMotor('/admin/panel/payment-notice',body));}finally{paymentFlushBusy=false;}},30000).unref();
@@ -2637,5 +2656,6 @@ app.listen(PORT, () => {
     `DLL ONE Panel Cloud V5.8.7 escuchando en puerto ${PORT}`
   );
 });
+
 
 

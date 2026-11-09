@@ -687,6 +687,7 @@
 .hours-day{padding:14px 0;border-bottom:1px solid #dde5dd;display:grid;gap:10px;grid-template-columns:100px 1fr auto;align-items:start}.hours-slot{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;align-items:end}.hours-slot label{display:grid;gap:4px}.hours-slot input{max-width:155px}@media(max-width:650px){.hours-day{grid-template-columns:1fr}.hours-day>button{justify-self:start}}
 </style>
   <link rel="stylesheet" href="/panel-design.css">
+  <link rel="stylesheet" href="/whatsapp-chat.css">
 </head>
 <body>
   <div id="login" class="login">
@@ -724,7 +725,7 @@
         </div>
       </div>
 
-<nav class="nav" aria-label="Navegación principal"><div class="nav-group"><p class="nav-heading">Tu espacio</p><button class="active" data-tab="dashboard" onclick="go('dashboard',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 3l9 7v11h-6v-7H9v7H3Z"/></svg><span>Inicio</span><span class="notice-badge" data-notice="dashboard" hidden></span></button></div><div class="nav-group"><p class="nav-heading">Operación</p><button data-tab="conversations" onclick="go('conversations',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/></svg><span>Conversaciones</span><span class="notice-badge" data-notice="conversations" hidden></span></button><button data-tab="orders" onclick="go('orders',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v19l-4-2-3 2-3-2-4 2ZM8 8h8M8 12h8M8 16h5"/></svg><span>Pedidos</span><span class="notice-badge" data-notice="orders" hidden></span></button><button data-tab="delivery" onclick="go('delivery',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h11v12H3ZM14 10h4l3 4v3h-7M6 17v3M18 17v3"/></svg><span>Delivery</span><span class="notice-badge" data-notice="delivery" hidden></span></button><button data-tab="receipts" onclick="go('receipts',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9"/></svg><span>Comprobantes </span><span class="notice-badge" data-notice="receipts" hidden></span></button><button data-tab="outbound" onclick="go('outbound',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM17 17l5 5M11 7v5M11 15h.01"/></svg><span>Entregas en revisión</span></button></div><div class="nav-group"><p class="nav-heading">Clientes</p><button data-tab="customers" onclick="go('customers',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM1 21v-3a7 7 0 0 1 14 0v3M16 4a4 4 0 0 1 0 8M18 15a5 5 0 0 1 5 5v1"/></svg><span>Clientes</span></button><button data-tab="commercial" onclick="go('commercial',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18H4ZM8 8h8M8 12h8M8 16h5"/></svg><span>Seguimiento comercial</span></button></div><div class="nav-group"><p class="nav-heading">Módulos ONE</p><button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8l11 11-8 8L3 11ZM7 7h.01"/></svg><span>ONE Ventas</span></button><button id="navGastro" data-tab="gastro" onclick="go('gastro',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v19M20 3c-5 3-5 8 0 10v9M20 3v10"/></svg><span>ONE Gastro</span></button><button id="navHealth" data-tab="health" onclick="go('health',this)" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z"/></svg><span>ONE Salud</span></button><button id="navEvents" data-tab="events" onclick="go('events')" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4ZM8 2v6M16 2v6M4 11h16M8 15h2M14 15h2"/></svg><span>ONE Eventos</span></button></div><div class="nav-group"><p class="nav-heading">Administración</p><button data-tab="business" onclick="go('business',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V4h12v17M15 10h6v11M7 8h4M7 12h4M7 16h4M1 21h22"/></svg><span>Mi negocio</span></button><button class="admin-only hidden-admin" data-tab="products" onclick="go('products')"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z"/></svg><span>Categorías ONE</span></button><button id="navAdmin" class="admin-only hidden-admin" data-tab="admin" onclick="go('admin',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M9 15v6"/></svg><span>Super Admin</span></button></div></nav><div class="sidebar-footer"><span class="brand-dot"></span> Un espacio para tu negocio</div>
+<nav class="nav" aria-label="Navegación principal"><div class="nav-group"><p class="nav-heading">Tu espacio</p><button class="active" data-tab="dashboard" onclick="go('dashboard',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 3l9 7v11h-6v-7H9v7H3Z"/></svg><span>Inicio</span><span class="notice-badge" data-notice="dashboard" hidden></span></button></div><div class="nav-group"><p class="nav-heading">Operación</p><button data-tab="conversations" onclick="go('conversations',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/></svg><span>Conversaciones</span><span class="notice-badge" data-notice="conversations" hidden></span></button><button data-tab="orders" onclick="go('orders',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v19l-4-2-3 2-3-2-4 2ZM8 8h8M8 12h8M8 16h5"/></svg><span>Pedidos</span><span class="notice-badge" data-notice="orders" hidden></span></button><button data-tab="delivery" onclick="go('delivery',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h11v12H3ZM14 10h4l3 4v3h-7M6 17v3M18 17v3"/></svg><span>Delivery</span><span class="notice-badge" data-notice="delivery" hidden></span></button><button data-tab="receipts" onclick="go('receipts',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9"/></svg><span>Comprobantes </span><span class="notice-badge" data-notice="receipts" hidden></span></button><button data-tab="outbound" onclick="go('outbound',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM17 17l5 5M11 7v5M11 15h.01"/></svg><span>Entregas en revisión</span></button></div><div class="nav-group"><p class="nav-heading">Clientes</p><button data-tab="customers" onclick="go('customers',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM1 21v-3a7 7 0 0 1 14 0v3M16 4a4 4 0 0 1 0 8M18 15a5 5 0 0 1 5 5v1"/></svg><span>Clientes</span></button><button data-tab="commercial" onclick="go('commercial',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16v18H4ZM8 8h8M8 12h8M8 16h5"/></svg><span>Seguimiento comercial</span></button></div><div class="nav-group"><p class="nav-heading">Módulos ONE</p><button id="navCatalog" data-tab="catalog" onclick="go('catalog',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8l11 11-8 8L3 11ZM7 7h.01"/></svg><span>ONE Ventas</span></button><button id="navGastro" data-tab="gastro" onclick="go('gastro',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v19M20 3c-5 3-5 8 0 10v9M20 3v10"/></svg><span>ONE Gastro</span></button><button id="navHealth" data-tab="health" onclick="go('health',this)" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z"/></svg><span>ONE Salud</span></button><button id="navLodging" data-tab="lodging" onclick="go('lodging')" style="display:none"><span>⌂</span><span>ONE Cabañas</span></button><button id="navEvents" data-tab="events" onclick="go('events')" style="display:none"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4ZM8 2v6M16 2v6M4 11h16M8 15h2M14 15h2"/></svg><span>ONE Eventos</span></button></div><div class="nav-group"><p class="nav-heading">Administración</p><button data-tab="business" onclick="go('business',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V4h12v17M15 10h6v11M7 8h4M7 12h4M7 16h4M1 21h22"/></svg><span>Mi negocio</span></button><button class="admin-only hidden-admin" data-tab="products" onclick="go('products')"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z"/></svg><span>Categorías ONE</span></button><button id="navAdmin" class="admin-only hidden-admin" data-tab="admin" onclick="go('admin',this)"><svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M9 15v6"/></svg><span>Super Admin</span></button></div></nav><div class="sidebar-footer"><span class="brand-dot"></span> Un espacio para tu negocio</div>
     </aside>
 
     <main>
@@ -988,7 +989,7 @@
                 <option value="gastro">ONE Gastro</option>
                 <option value="ventas">ONE Ventas</option>
                 <option value="salud">ONE Salud</option>
-                <option value="eventos">ONE Eventos</option>
+                <option value="eventos">ONE Eventos</option><option value="cabanas">ONE Cabañas</option>
               </select>
               <p id="moduleHelp" class="mini-note" style="margin-top:12px">Se muestra únicamente el módulo elegido. Los datos anteriores se conservan. Usá Guardar cambios para aplicar.</p>
             </div>
@@ -1199,6 +1200,20 @@
           </fieldset>
         </section>
 
+        <section id="lodging" class="section">
+ <div class="hero"><div><h1>ONE Cabañas</h1><p>Mostrá cada alojamiento con sus fotos, capacidad y características.</p></div></div>
+ <p class="mini-note">El bot informa y muestra opciones. La disponibilidad y la reserva se confirman personalmente por WhatsApp.</p>
+ <p id="lodgingStatus" role="status" aria-live="polite"></p>
+ <div class="card"><div class="actions-row"><button class="btn btn-light" onclick="loadLodging()">Actualizar catálogo</button><button id="lodgingNew" class="btn btn-primary" onclick="newCabin()" disabled>Nueva cabaña</button></div><div id="lodgingList" class="form-grid"></div></div>
+ <div class="card"><h2>Ficha de la cabaña</h2><fieldset id="lodgingFields" disabled style="border:0;padding:0"><input id="cabinId" type="hidden"><div class="form-grid">
+ <div class="form-field"><label for="cabinName">Nombre</label><input id="cabinName" maxlength="100"></div><div class="form-field"><label for="cabinCapacity">Capacidad máxima</label><input id="cabinCapacity" type="number" min="1" max="30" value="2"></div>
+ <div class="form-field full"><label for="cabinDescription">Características y servicios</label><textarea id="cabinDescription" maxlength="1500" rows="4" placeholder="Dormitorios, camas, cocina, Wi-Fi, pileta, mascotas…"></textarea></div>
+ <div class="form-field full"><label for="cabinRate">Tarifa y condiciones (opcional)</label><textarea id="cabinRate" maxlength="300" rows="2" placeholder="Indicá moneda, por noche y condiciones. Si varía por fecha, escribí consultar tarifa."></textarea></div>
+ <label><input id="cabinActive" type="checkbox" checked> Mostrar en el catálogo (no significa disponibilidad de fechas)</label>
+ <div class="form-field full"><label for="cabinPhotos">Reemplazar fotos · hasta 3 JPG/PNG de 400 KB cada una</label><input id="cabinPhotos" type="file" accept="image/jpeg,image/png" multiple><small>Sin archivos nuevos se conservan las fotos actuales.</small><label><input id="cabinRemovePhotos" type="checkbox"> Quitar fotos actuales</label></div></div>
+ <div class="actions-row"><button class="btn btn-primary" onclick="saveCabinForm()">Guardar cabaña</button></div></fieldset></div>
+</section>
+
         <section id="events" class="section">
           <div class="hero"><div><h1>ONE Eventos</h1><p>Organizá eventos, controlá cupos y registrá el ingreso de asistentes.</p></div></div>
           <p id="eventsStatus" role="status" aria-live="polite"></p>
@@ -1278,10 +1293,11 @@
                   <div class="form-field full"><label>Phone Number ID de WhatsApp</label><input id="adminCompanyPhoneId" placeholder="Se puede completar después"></div>
                 </div>
                 <div class="module-checks" style="margin-top:12px">
-                  <label class="module-check"><input id="adminModVentas" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios'.split(','))" type="checkbox" checked> ONE Ventas</label>
-                  <label class="module-check"><input id="adminModGastro" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios'.split(','))" type="checkbox"> ONE Gastro</label>
-                  <label class="module-check"><input id="adminModEventos" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios'.split(','))" type="checkbox"> ONE Eventos</label>
-                  <label class="module-check"><input id="adminModServicios" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios'.split(','))" type="checkbox"> ONE Servicios</label>
+                  <label class="module-check"><input id="adminModVentas" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios,adminModCabanas'.split(','))" type="checkbox" checked> ONE Ventas</label>
+                  <label class="module-check"><input id="adminModGastro" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios,adminModCabanas'.split(','))" type="checkbox"> ONE Gastro</label>
+                  <label class="module-check"><input id="adminModEventos" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios,adminModCabanas'.split(','))" type="checkbox"> ONE Eventos</label>
+                  <label class="module-check"><input id="adminModCabanas" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios,adminModCabanas'.split(','))" type="checkbox"> ONE Cabañas</label>
+                  <label class="module-check"><input id="adminModServicios" onchange="chooseOneModule(this.id,'adminModVentas,adminModGastro,adminModEventos,adminModServicios,adminModCabanas'.split(','))" type="checkbox"> ONE Servicios</label>
                 </div>
                 <div class="actions-row"><button id="nativeCreateButton" class="btn btn-primary" onclick="createCompany()">Crear empresa</button></div>
               </div>
@@ -1388,6 +1404,7 @@
 <script src="/company_service.js"></script>
 <script src="/health_demo.js"></script>
 <script src="/events.js"></script>
+<script src="/lodging.js"></script>
 <script src="/payments.js"></script>
 <script src="/notification_state.js"></script>
 <script src="/notifications.js"></script>
@@ -1504,7 +1521,8 @@
     stopNotifications();
     clearInterval(inboxTimer);
     businessAdminDrafts.clear();resetBusinessAdmin();resetSalesTools();currentUser=null;companyId="";selectedChat=null;resetDeliveryView();
-    resetEvents();resetPayments();
+    resetEvents();
+    resetLodging();resetPayments();
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
   }
@@ -1559,6 +1577,7 @@
       ['salud','ONE Salud','health','Demostración: especialistas, agenda y turnos.'],
       ['gastro','ONE Gastro','gastro','Menú, precios, pagos y zonas de delivery.'],
       ['ventas','ONE Ventas','catalog','Productos y listas de precios.'],
+      ['cabanas','ONE Cabañas','lodging','Fotos, capacidad y características. Reservas con confirmación humana.'],
       ['eventos','ONE Eventos','events','Eventos, cupos, asistentes y control de ingreso.']]){
       const card=document.createElement('div');card.className='card';const title=document.createElement('h2');title.textContent=name;card.appendChild(title);
       const info=document.createElement('p');info.textContent=description;card.appendChild(info);
@@ -1579,9 +1598,9 @@
 
   function moduleFlag(mods,key){const value=mods?.[key]??mods?.['MODULO_'+key.toUpperCase()];return value===true||['SI','TRUE','1'].includes(String(value).toUpperCase());}
   function moduleEnabled(key,company=selectedCompany()){
-    const m=company?.modules||{},keys=['ventas','gastro','eventos','servicios','salud'];
+    const m=company?.modules||{},keys=['ventas','gastro','eventos','servicios','salud','cabanas'];
     if(!moduleFlag(m,key))return false;
-    if(['salud','eventos'].some(k=>moduleFlag(m,k))&&keys.filter(k=>moduleFlag(m,k)).length!==1)return false;
+    if(['salud','eventos','cabanas'].some(k=>moduleFlag(m,k))&&keys.filter(k=>moduleFlag(m,k)).length!==1)return false;
     return key!=='ventas'||!moduleFlag(m,'gastro');
   }
   function gastroEnabled(){return moduleEnabled('gastro');}
@@ -1589,12 +1608,12 @@
   function resolveModuleTab(tab){
     if(tab==='products'&&currentUser?.role!=='SUPERADMIN')return 'dashboard';
     if(tab==='catalog'&&gastroEnabled())return 'gastro';
-    const key={catalog:'ventas',gastro:'gastro',health:'salud',events:'eventos'}[tab];
+    const key={catalog:'ventas',gastro:'gastro',health:'salud',events:'eventos',lodging:'cabanas'}[tab];
     if(key&&!moduleEnabled(key))return 'dashboard';
     return tab;
   }
   function updateModuleNavigation(){
-    for(const [key,ids] of [['salud',['navHealth','moreHealth']],['gastro',['navGastro','moreGastro']],['ventas',['navCatalog','moreCatalog']],['eventos',['navEvents','moreEvents']]]){
+    for(const [key,ids] of [['salud',['navHealth','moreHealth']],['gastro',['navGastro','moreGastro']],['ventas',['navCatalog','moreCatalog']],['eventos',['navEvents','moreEvents']],['cabanas',['navLodging','moreLodging']]]){
       for(const id of ids)if($(id))$(id).style.display=moduleEnabled(key)?'':'none';
     }
   }
@@ -1613,6 +1632,7 @@
     resetBusinessAdmin();
     resetHealthDemo();
     resetEvents();
+    resetLodging();
     resetPayments();
     selectedChat=null;
     $('chatContent').classList.add('hidden');$('chatEmpty').classList.remove('hidden');
@@ -1646,7 +1666,7 @@
 
   async function loadTab(tab){
     if(resolveModuleTab(tab)!==tab)return go(resolveModuleTab(tab));
-    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','commercial','outbound','receipts','business','catalog','gastro','health','events']);
+    const companyTabs=new Set(['dashboard','conversations','orders','delivery','customers','commercial','outbound','receipts','business','catalog','gastro','health','events','lodging']);
     if(companyTabs.has(tab)&&!companyId){
       if(String(currentUser?.role||'').toUpperCase()==='SUPERADMIN'){
         await go('admin');
@@ -1671,6 +1691,7 @@
       if(tab==='gastro')await loadGastro();
       if(tab==='health'){if(typeof loadHealth!=='function')throw Error('Falta cargar health_demo.js. Volvé a subir todos los archivos del panel V585 y recargá.');await loadHealth();}
       if(tab==='events')await loadEvents();
+      if(tab==='lodging')await loadLodging();
       if(tab==='products')renderProductCategories();
       if(tab==='admin')await loadAdmin();
       if(tab==='more')updateModuleNavigation();
@@ -2693,7 +2714,7 @@
     $('bizQuoteValidity').value=String(c.VALIDEZ_PRESUPUESTO_DIAS??0);
     $('bizPhoneNumberId').value=e.phoneNumberId||'';
     const isSuper=String(currentUser?.role||'').toUpperCase()==='SUPERADMIN';
-    const active=['ventas','gastro','eventos','servicios','salud'].filter(k=>moduleFlag(m,k));
+    const active=['ventas','gastro','eventos','servicios','salud','cabanas'].filter(k=>moduleFlag(m,k));
     $('businessModule').value=active.length===1&&active[0]!=='servicios'?active[0]:'';
     $('businessModule').disabled=!isSuper;
     $('moduleAssignmentCard').classList.toggle('hidden-admin',!isSuper);
