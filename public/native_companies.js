@@ -2,7 +2,7 @@ let nativeLoadSequence=0,metaWebhookBusy=false;
 let nativeCreateBusy=false,nativeCreateAttempt=null,nativeConnectionRevision=null,nativeConnectionBusy=false,nativeConnectionTarget='';
 async function createCompany(){
  if(nativeCreateBusy)return;
- const body={nombreEmpresa:$('adminCompanyName').value.trim(),tipoNegocio:$('adminCompanyType').value,webSlug:$('adminCompanySlug').value.trim(),phoneNumberId:$('adminCompanyPhoneId').value.trim(),modules:{ventas:$('adminModVentas').checked,gastro:$('adminModGastro').checked,eventos:$('adminModEventos').checked,servicios:$('adminModServicios').checked}};
+ const body={nombreEmpresa:$('adminCompanyName').value.trim(),tipoNegocio:$('adminCompanyType').value,webSlug:$('adminCompanySlug').value.trim(),phoneNumberId:$('adminCompanyPhoneId').value.trim(),modules:{cabanas:$('adminModCabanas').checked,ventas:$('adminModVentas').checked,gastro:$('adminModGastro').checked,eventos:$('adminModEventos').checked,servicios:$('adminModServicios').checked}};
  if(!body.nombreEmpresa){$('nativeCreateStatus').textContent='Ingresá el nombre de la empresa.';return;}
  const serialized=JSON.stringify(body);
  if(nativeCreateAttempt?.serialized!==serialized)nativeCreateAttempt={serialized,requestId:crypto.randomUUID()};
@@ -85,3 +85,4 @@ async function copyMetaField(id){
  try{await navigator.clipboard.writeText(value);$('metaWebhookStatus').textContent=id==='metaCallbackUrl'?'URL copiada.':'Token de verificación copiado.';}
  catch{$('metaWebhookStatus').textContent='El navegador no permitió copiar. Seleccioná el campo y usá Ctrl+C.';$(id).focus();$(id).select();}
 }
+

@@ -1,0 +1,19 @@
+/* WhatsApp-inspired light chat, scoped to conversations; DLL ONE brand stays intact. */
+#conversations .conversation-list-pane{background:#fff;border-color:#d1d7db}
+#conversations .conversation-tools,#conversations .chat-head,#conversations .composer{background:#f0f2f5;border-color:#d1d7db}
+#conversations .conversation-tools input,#conversations .conversation-tools select{background:#fff;border-color:transparent;border-radius:8px}
+#conversations .conversation-item{border-color:#f0f2f5}
+#conversations .conversation-item:hover{background:#f5f6f6}
+#conversations .conversation-item.active{background:#f0f2f5}
+#conversations .conversation-name{font-weight:600;color:#111b21}
+#conversations .conversation-last,#conversations .conversation-date,#conversations .chat-title small{color:#667781}
+#conversations .chat-pane{background:#efeae2}
+#conversations .chat-messages{background-color:#efeae2;background-image:radial-gradient(#d8d3cb 0.7px,transparent 0.7px);background-size:18px 18px;padding:24px;gap:8px}
+#conversations .bubble{background:#fff;border:0;border-radius:0 8px 8px 8px;box-shadow:0 1px 1px #0b141a21;color:#111b21;padding:8px 10px;max-width:min(78%,650px)}
+#conversations .bubble-row.out .bubble{background:#d9fdd3;border-radius:8px 0 8px 8px}
+#conversations .bubble-meta{color:#667781;font-size:10px;font-weight:500;text-transform:none}
+#conversations .bubble-text{font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45}
+#conversations .composer textarea{background:#fff;border-color:transparent;border-radius:9px}
+#conversations .composer .btn-primary{background:#008069;color:#fff;border-color:#008069}
+#conversations :is(input,textarea,select,button):focus-visible{outline:3px solid #008069;outline-offset:2px}
+@media(max-width:760px){#conversations .chat-messages{padding:14px 10px}#conversations .bubble{max-width:88%}#conversations .chat-head{flex-wrap:wrap}}

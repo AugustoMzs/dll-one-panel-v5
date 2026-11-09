@@ -54,7 +54,7 @@ export async function saveBusinessProfile(db,companyId,data,allowModules){
     if(Object.hasOwn(data,'modulos'))throw Error('Enviá una sola configuración.');
     modules=assignModule({...company.modules,...modules},data.module);
    }
-   if(data.modulos){modules={...company.modules,...modules};for(const key of ['ventas','gastro','eventos','servicios','salud'])if(Object.hasOwn(data.modulos,key)){if(typeof data.modulos[key]!=='boolean')throw new Error('Módulos inválidos.');modules[key]=data.modulos[key];}}
+   if(data.modulos){modules={...company.modules,...modules};for(const key of ['ventas','gastro','eventos','servicios','salud','cabanas'])if(Object.hasOwn(data.modulos,key)){if(typeof data.modulos[key]!=='boolean')throw new Error('Módulos inválidos.');modules[key]=data.modulos[key];}}
    if(Object.hasOwn(data,'PHONE_NUMBER_ID')){phone=String(data.PHONE_NUMBER_ID||'').trim();if(phone&&!/^\d+$/.test(phone))throw new Error('Phone Number ID inválido.');
     if(phone&&(await client.query('SELECT company_id FROM panel_companies WHERE phone_number_id=$1 AND company_id<>$2',[phone,companyId])).rows.length)throw new Error('Ese número ya pertenece a otra empresa.');}
   }
@@ -68,3 +68,4 @@ export async function saveBusinessProfile(db,companyId,data,allowModules){
   await client.query('COMMIT');return result;
  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
 }
+
