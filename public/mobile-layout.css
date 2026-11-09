@@ -1,0 +1,42 @@
+/* Phone layout only; preserves desktop layout and existing permission controls. */
+@media(max-width:760px){
+  .app>main{min-width:0}
+  .content{padding:18px 12px calc(96px + env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+  .app>main>header{flex-wrap:wrap;align-items:center;padding-top:max(10px,env(safe-area-inset-top))}
+  .head-left{flex:1 1 180px;min-width:0}
+  .app>main>header>div:last-child{max-width:100%;gap:6px}
+  .company{max-width:100%;font-size:16px}
+  .card{padding:16px;min-width:0}
+  .hero h1{font-size:24px;overflow-wrap:anywhere}
+  .hero p,.mini-note,.card-sub,.data-row,.order-card{overflow-wrap:anywhere}
+  .orders-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .form-grid,.form-grid.three,.grid-2,.section-grid{grid-template-columns:minmax(0,1fr)}
+  fieldset{min-width:0;max-width:100%;box-sizing:border-box}
+  .form-field,.field{min-width:0}
+  input:not([type=checkbox]):not([type=radio]),select,textarea{max-width:100%;min-width:0;box-sizing:border-box;font-size:16px!important;min-height:44px}
+  input[type=file]{width:100%;overflow:hidden}
+  .btn,.btn-xs,.section-tabs button,.chat-actions .btn,.app>main>header .btn{min-height:44px}
+  .actions-row{display:flex;flex-wrap:wrap;gap:8px}
+  .actions-row>.btn{flex:1 1 140px;white-space:normal}
+  .section-tabs{max-width:100%;overscroll-behavior-x:contain}
+  /* Tables without mobile cards must remain accessible, within their own scroller. */
+  .table-wrap:not(:has(.mobile-records)){overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .table-wrap:not(:has(.mobile-records)) table{display:table}
+  dialog{box-sizing:border-box;max-width:calc(100vw - 20px);max-height:calc(100dvh - 24px);overflow:auto}
+  .mobile-bottom-nav{padding-bottom:calc(7px + env(safe-area-inset-bottom))}
+  #conversations .conversation-shell{padding:0;border:0;background:transparent}
+  #conversations .conversation-tools{position:static;padding:8px;border-radius:12px;margin-bottom:10px}
+  #conversations .chat-pane.mobile-open{z-index:45;bottom:auto;height:100dvh;max-height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);box-sizing:border-box}
+  #conversations .chat-head{flex-shrink:0;gap:8px}
+  #conversations .chat-actions{gap:5px;flex-shrink:0}
+  #conversations .chat-messages{min-height:0;overflow-y:auto;overscroll-behavior-y:contain}
+  #conversations .composer{flex-shrink:0;grid-template-columns:minmax(0,1fr) 68px}
+  #conversations .chat-back{min-width:44px;min-height:44px}
+  #chatAttachments{max-height:100px;overflow:auto}
+  #lodgingList{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:360px){
+ .more-grid,.module-checks{grid-template-columns:minmax(0,1fr)}
+ .metric{padding:12px}.metric .value{font-size:28px}
+ .app>main>header>div:last-child{flex:1 1 100%;justify-content:flex-end}
+}
