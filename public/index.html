@@ -689,6 +689,7 @@
   <link rel="stylesheet" href="/panel-design.css">
   <link rel="stylesheet" href="/whatsapp-chat.css">
   <link rel="stylesheet" href="/mobile-layout.css">
+  <link rel="stylesheet" href="/lodging.css">
 </head>
 <body>
   <div id="login" class="login">
@@ -1203,16 +1204,30 @@
 
         <section id="lodging" class="section">
  <div class="hero"><div><h1>ONE Cabañas</h1><p>Mostrá cada alojamiento con sus fotos, capacidad y características.</p></div></div>
- <p class="mini-note">El bot informa y muestra opciones. La disponibilidad y la reserva se confirman personalmente por WhatsApp.</p>
+ <p class="mini-note">El bot informa, cotiza y registra solicitudes. Solo el alojamiento confirma reservas; mantené el calendario actualizado.</p>
  <p id="lodgingStatus" role="status" aria-live="polite"></p>
+ <nav class="tourism-tabs actions-row" aria-label="Secciones de alojamiento"><button class="btn btn-light" onclick="lodgingTab('overview')">Resumen</button><button class="btn btn-light" onclick="lodgingTab('catalog')">Alojamientos</button><button class="btn btn-light" onclick="lodgingTab('requests')">Solicitudes</button><button class="btn btn-light" onclick="lodgingTab('calendar')">Calendario</button><button class="btn btn-light" onclick="lodgingTab('reservations')">Reservas</button><button class="btn btn-light" onclick="lodgingTab('settings')">Configuración</button></nav>
+ <div id="lodgingOverview" class="card" data-lodging-tab="overview"><h2>Resumen</h2><p id="lodgingSummary">Cargando…</p><p>Las solicitudes no bloquean fechas. Confirmá solo cuando hayas acordado las condiciones con el huésped. Los cambios del panel no envían mensajes automáticamente.</p></div>
+ <div data-lodging-tab="catalog" hidden>
  <div class="card"><div class="actions-row"><button class="btn btn-light" onclick="loadLodging()">Actualizar catálogo</button><button id="lodgingNew" class="btn btn-primary" onclick="newCabin()" disabled>Nueva cabaña</button></div><div id="lodgingList" class="form-grid"></div></div>
  <div class="card"><h2>Ficha de la cabaña</h2><fieldset id="lodgingFields" disabled style="border:0;padding:0"><input id="cabinId" type="hidden"><div class="form-grid">
  <div class="form-field"><label for="cabinName">Nombre</label><input id="cabinName" maxlength="100"></div><div class="form-field"><label for="cabinCapacity">Capacidad máxima</label><input id="cabinCapacity" type="number" min="1" max="30" value="2"></div>
  <div class="form-field full"><label for="cabinDescription">Características y servicios</label><textarea id="cabinDescription" maxlength="1500" rows="4" placeholder="Dormitorios, camas, cocina, Wi-Fi, pileta, mascotas…"></textarea></div>
  <div class="form-field full"><label for="cabinRate">Tarifa y condiciones (opcional)</label><textarea id="cabinRate" maxlength="300" rows="2" placeholder="Indicá moneda, por noche y condiciones. Si varía por fecha, escribí consultar tarifa."></textarea></div>
+ <div id="cabinStructured" class="form-field full"></div>
  <label><input id="cabinActive" type="checkbox" checked> Mostrar en el catálogo (no significa disponibilidad de fechas)</label>
- <div class="form-field full"><label for="cabinPhotos">Reemplazar fotos · hasta 3 JPG/PNG de 400 KB cada una</label><input id="cabinPhotos" type="file" accept="image/jpeg,image/png" multiple><small>Sin archivos nuevos se conservan las fotos actuales.</small><label><input id="cabinRemovePhotos" type="checkbox"> Quitar fotos actuales</label></div></div>
- <div class="actions-row"><button class="btn btn-primary" onclick="saveCabinForm()">Guardar cabaña</button></div></fieldset></div>
+ <div class="form-field full"><label for="cabinPhotos">Reemplazar fotos · hasta 6 JPG/PNG de 400 KB cada una</label><input id="cabinPhotos" type="file" accept="image/jpeg,image/png" multiple><small>Sin archivos nuevos se conservan las fotos actuales.</small><label><input id="cabinRemovePhotos" type="checkbox"> Quitar fotos actuales</label></div></div>
+ <div id="cabinGallery" class="form-grid"></div><div class="actions-row"><button class="btn btn-primary" onclick="saveCabinForm()">Guardar cabaña</button></div></fieldset></div>
+ </div>
+ <div data-lodging-tab="requests" hidden class="card"><h2>Solicitudes por revisar</h2><div id="lodgingRequests"></div></div>
+ <div data-lodging-tab="reservations" hidden class="card"><h2>Reservas y cancelaciones</h2><div id="lodgingReservations"></div></div>
+ <div data-lodging-tab="calendar" hidden class="card"><h2>Calendario de ocupación</h2><label for="lodgingCalendarMonth">Mes</label><input id="lodgingCalendarMonth" type="month" onchange="renderLodgingCalendar()"><p>Ocupado incluye reservas confirmadas y bloqueos manuales. Una fecha sin ocupación registrada no garantiza disponibilidad externa.</p><div id="lodgingCalendar" style="overflow-x:auto"></div>
+ <h3>Solicitud manual o bloqueo</h3><fieldset id="lodgingBookingFields" disabled style="border:0;padding:0"><div class="form-grid">
+ <div class="form-field"><label for="lodgingBookingCabin">Alojamiento</label><select id="lodgingBookingCabin"></select></div><div class="form-field"><label for="lodgingBookingType">Tipo</label><select id="lodgingBookingType"><option value="BLOCKED">Bloqueo de fechas</option><option value="PENDING">Solicitud pendiente</option></select></div>
+ <div class="form-field"><label for="lodgingArrival">Entrada</label><input id="lodgingArrival" type="date"></div><div class="form-field"><label for="lodgingDeparture">Salida (no ocupada)</label><input id="lodgingDeparture" type="date"></div>
+ <div class="form-field"><label for="lodgingGuests">Personas</label><input id="lodgingGuests" type="number" min="1" max="30" value="1"></div><div class="form-field"><label for="lodgingGuestName">Nombre del huésped</label><input id="lodgingGuestName" maxlength="120"></div>
+ <div class="form-field"><label for="lodgingContact">WhatsApp</label><input id="lodgingContact" type="tel" maxlength="21"></div><div class="form-field"><label for="lodgingBookingNote">Nota interna</label><textarea id="lodgingBookingNote" maxlength="500"></textarea></div></div><button class="btn btn-primary" onclick="saveLodgingBooking()">Guardar solicitud / bloqueo</button></fieldset><h3>Bloqueos</h3><div id="lodgingBlocks"></div></div>
+ <div data-lodging-tab="settings" hidden class="card"><h2>Información del alojamiento</h2><fieldset id="lodgingSettingsFields" disabled style="border:0;padding:0"><div id="lodgingSettingsForm" class="form-grid"></div><button class="btn btn-primary" onclick="saveLodgingSettings()">Guardar configuración</button></fieldset></div>
 </section>
 
         <section id="events" class="section">
@@ -1407,6 +1422,7 @@
 <script src="/health_demo.js"></script>
 <script src="/events.js"></script>
 <script src="/lodging.js"></script>
+<script src="/lodging-operations.js"></script>
 <script src="/payments.js"></script>
 <script src="/notification_state.js"></script>
 <script src="/notifications.js"></script>

@@ -1,5 +1,8 @@
+import {details,initOperations} from './lodging_operations.js';
+import {conversation} from './lodging_conversation.js';
 import {createHash} from 'node:crypto';
 export async function initLodging(db){
+ await initOperations(db);
  await db.query(`CREATE TABLE IF NOT EXISTS panel_lodging_catalog(company_id TEXT PRIMARY KEY,items JSONB NOT NULL DEFAULT '[]',revision INTEGER NOT NULL DEFAULT 0)`);
  await db.query(`CREATE TABLE IF NOT EXISTS panel_lodging_chats(company_id TEXT NOT NULL,contact TEXT NOT NULL,history JSONB NOT NULL DEFAULT '[]',updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(company_id,contact))`);
 }
@@ -11,7 +14,7 @@ export function validateCabins(items){
   const id=str(x.id,80),name=str(x.name,100),description=str(x.description,1500),rate=str(x.rate||'',300);
   if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||ids.has(id)||!name||!description)throw Error('Completá nombre, características e identificadores únicos.');ids.add(id);
   if(!Number.isInteger(x.capacity)||x.capacity<1||x.capacity>30||typeof x.active!=='boolean')throw Error('Revisá capacidad y estado.');
-  if(!Array.isArray(x.photos)||x.photos.length>3)throw Error('Hasta 3 fotos por cabaña.');
+  if(!Array.isArray(x.photos)||x.photos.length>6)throw Error('Hasta 6 fotos por cabaña.');
   const photos=x.photos.map(p=>{
    if(!['image/jpeg','image/png'].includes(p.mime)||typeof p.base64!=='string'||p.base64.length>550000||! /^[A-Za-z0-9+/]+={0,2}$/.test(p.base64))throw Error('Usá fotos JPG o PNG de hasta 400 KB.');
    const b=Buffer.from(p.base64,'base64');bytes+=b.length;
@@ -19,7 +22,7 @@ export function validateCabins(items){
    return {id:createHash('sha256').update(b).digest('hex'),mime:p.mime,base64:p.base64};
   });
   if(bytes>8*1024*1024)throw Error('Las fotos del catálogo superan los 8 MB.');
-  return {id,name,description,rate,capacity:x.capacity,active:x.active,photos};
+  return {id,name,description,rate,capacity:x.capacity,active:x.active,photos,details:details(x.details)};
  });
 }
 export async function lodgingCatalog(db,companyId){return (await db.query('SELECT items,revision FROM panel_lodging_catalog WHERE company_id=$1',[companyId])).rows[0]||{items:[],revision:0};}
@@ -44,14 +47,5 @@ export function lodgingReply(intent,items){
  return {response,photos:selected.flatMap(x=>x.photos.map(p=>({cabinId:x.id,photoId:p.id}))).slice(0,6)};
 }
 export async function lodgingChat(db,company,input,interpret){
- const contact=String(input.waId||'');const text=str(input.text,4000);
- if(!/^\d{7,20}$/.test(contact)||!text)throw Error('Faltan datos del mensaje.');
- const id=company.company_id;
- const catalog=await lodgingCatalog(db,id);
- const row=(await db.query('SELECT history,updated_at FROM panel_lodging_chats WHERE company_id=$1 AND contact=$2',[id,contact])).rows[0];
- const history=row&&Date.now()-new Date(row.updated_at).getTime()<1800000?row.history:[];
- const intent=await interpret(lodgingPrompt({company:company.company_name,catalog:catalog.items.filter(x=>x.active).map(({photos,...x})=>({...x,photoCount:photos.length})),history,text}));
- const result=lodgingReply(intent,catalog.items);
- await db.query(`INSERT INTO panel_lodging_chats(company_id,contact,history) VALUES($1,$2,$3) ON CONFLICT(company_id,contact) DO UPDATE SET history=EXCLUDED.history,updated_at=NOW()`,[id,contact,JSON.stringify([...history,{text,intent,response:result.response}].slice(-4))]);
- return result;
+ return conversation(db,company,input,interpret);
 }

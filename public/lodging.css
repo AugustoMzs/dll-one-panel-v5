@@ -1,0 +1,11 @@
+#lodging [hidden]{display:none!important}
+#lodging .tourism-tabs{gap:8px;margin:20px 0;flex-wrap:wrap}
+#lodging .tourism-tabs button[aria-pressed=true]{background:var(--green,#78b748);color:#122b19;border-color:transparent}
+#lodging [data-lodging-tab]>h2{margin-top:0}
+#lodging #lodgingCalendar th,#lodging #lodgingCalendar td{padding:10px;border-bottom:1px solid #d9e5d9}
+#lodging #lodgingCalendar th:first-child{position:sticky;left:0;background:#fff;min-width:130px;text-align:left;z-index:1}
+#lodging #lodgingCalendar table{border-collapse:collapse;font-size:13px}
+#lodging #cabinStructured{padding-top:16px;border-top:1px solid #e5ece5;gap:16px}
+#lodging #cabinGallery button{margin:4px 4px 4px 0}
+#lodging #lodgingRequests .card,#lodging #lodgingReservations .card,#lodging #lodgingBlocks .card{margin-bottom:12px;overflow-wrap:anywhere}
+@media(max-width:760px){#lodging .tourism-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#lodging .tourism-tabs button{min-height:44px;white-space:normal}#lodging #lodgingCalendar{max-width:100%;overscroll-behavior-x:contain}}
