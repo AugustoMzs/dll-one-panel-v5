@@ -14,7 +14,7 @@ export function validateCabins(items){
   const id=str(x.id,80),name=str(x.name,100),description=str(x.description,1500),rate=str(x.rate||'',300);
   if(!/^[a-zA-Z0-9_-]{8,80}$/.test(id)||ids.has(id)||!name||!description)throw Error('Completá nombre, características e identificadores únicos.');ids.add(id);
   if(!Number.isInteger(x.capacity)||x.capacity<1||x.capacity>30||typeof x.active!=='boolean')throw Error('Revisá capacidad y estado.');
-  if(!Array.isArray(x.photos)||x.photos.length>6)throw Error('Hasta 6 fotos por cabaña.');
+  if(!Array.isArray(x.photos)||x.photos.length>30)throw Error('Hasta 30 fotos por cabaña.');
   const photos=x.photos.map(p=>{
    if(!['image/jpeg','image/png'].includes(p.mime)||typeof p.base64!=='string'||p.base64.length>550000||! /^[A-Za-z0-9+/]+={0,2}$/.test(p.base64))throw Error('Usá fotos JPG o PNG de hasta 400 KB.');
    const b=Buffer.from(p.base64,'base64');bytes+=b.length;
@@ -44,7 +44,8 @@ export function lodgingReply(intent,items){
  selected=selected.sort((a,b)=>a.capacity-b.capacity).slice(0,3);
  if(!selected.length)return {response:'No tengo una cabaña cargada que corresponda a esa consulta. Podés consultar otras opciones con el alojamiento por este WhatsApp.',photos:[]};
  const response='¡Mirá estas opciones!\n\n'+selected.map(x=>`${x.name} · Hasta ${x.capacity} personas\n${x.description.slice(0,500)}\n${x.rate?'Tarifa informada: '+x.rate:'Tarifa: consultar al alojamiento.'}`).join('\n\n')+'\n\n¿Cuál te gusta? La disponibilidad para tus fechas y la reserva requieren confirmación del alojamiento.';
- return {response,photos:selected.flatMap(x=>x.photos.map(p=>({cabinId:x.id,photoId:p.id}))).slice(0,6)};
+ const photoOptions=intent.ids.length?selected:selected.filter(x=>x.capacity===intent.guests);
+ return {response,photos:photoOptions.length===1?photoOptions[0].photos.slice(0,3).map(p=>({cabinId:photoOptions[0].id,photoId:p.id})):[]};
 }
 export async function lodgingChat(db,company,input,interpret){
  return conversation(db,company,input,interpret);
