@@ -1170,7 +1170,7 @@ app.post('/motor/lodging/chat',authenticateMotorRequest,async(req,res)=>{
 app.post('/motor/lodging/photo',authenticateMotorRequest,async(req,res)=>{
  res.set('Cache-Control','no-store');try{const c=await lodgingMotorCompany(req,res);if(!c)return;
  const {items}=await lodgingCatalog(pool,c.company_id);const photo=items.find(x=>x.active&&x.id===req.body.cabinId)?.photos.find(x=>x.id===req.body.photoId);
- if(!photo)return res.status(404).json({ok:false,error:'Foto no encontrada.'});res.json({ok:true,companyId:c.company_id,...photo});
+ if(!photo)return res.status(404).json({ok:false,error:'Foto no encontrada.'});res.json({ok:true,companyId:c.company_id,...photo,caption:items.find(x=>x.id===req.body.cabinId).name});
  }catch{res.status(503).json({ok:false,error:'No se pudo obtener la foto.'});}
 });
 app.post('/motor/events/chat',authenticateMotorRequest,async(req,res)=>{

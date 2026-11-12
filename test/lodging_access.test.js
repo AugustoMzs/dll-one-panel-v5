@@ -7,3 +7,9 @@ test('lectura permitida, edición denegada, empresa ajena y módulo incorrecto b
  assert.equal((await fetch(url)).status,200);edit=false;assert.equal((await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:'{"items":[],"revision":0}'})).status,403);assert.equal(writes,0);
  member=false;assert.equal((await fetch(url)).status,403);member=true;company.modules={gastro:true};assert.equal((await fetch(url)).status,403);company.modules={cabanas:true};company.service_state='PAUSED';edit=true;assert.equal((await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status,403);assert.equal(writes,0);
 });
+
+test('reservas y configuración requieren permiso de edición y servicio activo',async()=>{
+ company={company_id:'A',modules:{cabanas:true},service_state:'ACTIVE'};member=true;edit=false;const before=writes;
+ for(const path of ['bookings','settings'])assert.equal((await fetch(url+'/'+path,{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status,403);
+ assert.equal(writes,before);edit=true;company.service_state='PAUSED';assert.equal((await fetch(url+'/bookings',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status,403);assert.equal(writes,before);
+});
