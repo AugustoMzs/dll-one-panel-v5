@@ -52,10 +52,11 @@ test('reservas usan operate y ajustes del alojamiento son exclusivos de SUPERADM
  assert.equal(data.canOperate,true);
  assert.equal(data.canConfigure,false);
  assert.notEqual((await post('/bookings')).status,403,'el operador puede pasar el control para reservar');
+ const afterAllowed=writes;
  assert.equal((await post('/settings')).status,403);
  company.service_state='PAUSED';
  assert.equal((await post('/bookings')).status,403);
- assert.equal(writes,before);
+ assert.equal(writes,afterAllowed,'los intentos sin autorización no ejecutan escrituras');
 
  reset();role='SUPERADMIN';
  const result=await post('/settings',{settings:{checkIn:'14:00'},revision:0});
