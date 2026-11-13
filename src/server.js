@@ -2075,7 +2075,7 @@ app.get('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
  try{const row=await getOrderHours(pool,req.params.companyId);res.json({ok:true,...row,status:evaluateHours(row.settings)});}
  catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
 });
-app.post('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
+app.post('/api/company/:companyId/order-hours',authRequired,requireSuperadmin,async(req,res)=>{
  try{
   if(String(req.session?.role||'').toUpperCase()!=='SUPERADMIN'){
    const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];
@@ -2090,7 +2090,7 @@ app.get('/api/company/:companyId/bot-instructions',authRequired,async(req,res)=>
  try{res.json({ok:true,...await getBotInstructions(pool,req.params.companyId)});}
  catch{res.status(503).json({ok:false,error:'No se pudieron cargar las instrucciones.'});}
 });
-app.post('/api/company/:companyId/bot-instructions',authRequired,async(req,res)=>{
+app.post('/api/company/:companyId/bot-instructions',authRequired,requireSuperadmin,async(req,res)=>{
  res.set('Cache-Control','no-store');
  try{
   if(String(req.session?.role||'').toUpperCase()!=='SUPERADMIN'){
@@ -2105,7 +2105,7 @@ app.get('/api/company/:companyId/profile',authRequired,async(req,res)=>{
  try{const company=await getCompany(req.params.companyId);if(!company)return res.status(404).json({ok:false,error:'Empresa no encontrada.'});res.json({ok:true,...await getBusinessProfile(pool,company)});}
  catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
 });
-app.post('/api/company/:companyId/profile',authRequired,async(req,res)=>{
+app.post('/api/company/:companyId/profile',authRequired,requireSuperadmin,async(req,res)=>{
  try{
   const isSuper=String(req.session?.role||'').toUpperCase()==='SUPERADMIN';
   if(!isSuper){const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar la empresa.'});}
