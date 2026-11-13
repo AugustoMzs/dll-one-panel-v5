@@ -1082,7 +1082,7 @@
             <button class="btn btn-light" onclick="document.getElementById('gZonesHeading').scrollIntoView({behavior:'smooth'})">Delivery</button>
             <button class="btn btn-light" onclick="loadGastro()">Recargar / reintentar importación</button>
           </div>
-          <div class="card" style="margin-bottom:18px">
+          <div class="card admin-only hidden-admin" style="margin-bottom:18px">
             <h3 class="card-title">Datos de Gastro en el panel</h3>
             <p class="card-sub">Copiá los datos y las fotos pendientes para que el menú se consulte desde el panel. Se conservan los precios, alias y cambios que ya guardaste.</p>
             <p id="gMigrationStatus" role="status">Verificando copia de Gastro…</p>
@@ -1557,6 +1557,7 @@
     businessAdminDrafts.clear();resetBusinessAdmin();resetSalesTools();currentUser=null;companyId="";selectedChat=null;resetDeliveryView();
     resetEvents();
     resetLodging();resetBarber();resetPayments();
+    gastroCanEdit=false;gastroSettingsCanEdit=false;
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
   }
@@ -1659,6 +1660,7 @@
     commercialOffset=0;commercialItems.clear();
     outboundLoadSeq++;outboundCloseAllowed=false;outboundClosureRequests.clear();
     salesRevision=null;catalogItems=[];clearCatalogForm();
+    gastroCanEdit=false;gastroSettingsCanEdit=false;
     resetSalesTools();
     resetDeliveryView();
     businessRevision=null;
@@ -2892,7 +2894,7 @@
   }
 
 
-  let gastroRevision=null;
+  let gastroRevision=null,gastroCanEdit=false;
   const gastroEdits={};
   const gastroKinds={category:['categorias','idCategoria','activa'],product:['productos','idProducto','activo'],variant:['variantes','idVariante','activa'],extra:['extras','idExtra','activo']};
   const gastroFields={category:{nombre:'gCatName',orden:'gCatOrder'},product:{nombre:'gProductName',idCategoria:'gProductCategory',descripcion:'gProductDescription',precioBase:'gProductPrice',orden:'gProductOrder'},variant:{nombre:'gVariantName',idProducto:'gVariantProduct',precio:'gVariantPrice'},extra:{nombre:'gExtraName',precio:'gExtraPrice'}};
@@ -2924,6 +2926,7 @@
   let gastroSaving=false;
   async function persistGastroItem(kind,data,clear=false){
     if(gastroSaving)return;
+    if(!gastroCanEdit){showNotice('Tu usuario no tiene permiso para editar el catálogo.');return;}
     if(gastroRevision===null){showNotice('Primero cargá Gastro.');return;}
     gastroSaving=true;showLoading(true);const target=companyId;
     try{
@@ -2939,30 +2942,31 @@
     await persistGastroItem(kind,{...item,[active]:item[active]==='SI'?'NO':'SI'});
   }
 
-  let settingsRevision=null,settingsSaving=false;
+  let settingsRevision=null,settingsSaving=false,gastroSettingsCanEdit=false;
   function acceptGastroSettings(r){
     settingsRevision=r.settingsRevision;
     gastroSettingsData={menu:r.menu,pagos:r.pagos,entrega:r.entrega,variantesHabilitadas:r.variantesHabilitadas!==false,extrasHabilitados:r.extrasHabilitados!==false};
-    $('gSettingsFields').disabled=false;renderGastroSettings();
+    gastroSettingsCanEdit=r.canEdit===true;
+    $('gSettingsFields').disabled=!gastroSettingsCanEdit;renderGastroSettings();
   }
   async function loadGastro(){
     const target=companyId;
     $('gMigrationDetails').replaceChildren();$('gMigrationStatus').textContent='Verificando copia de Gastro…';
-    gastroRevision=null;settingsRevision=null;
+    gastroRevision=null;settingsRevision=null;gastroCanEdit=false;gastroSettingsCanEdit=false;
     $('gCatalogFields').disabled=true;$('gSettingsFields').disabled=true;
     $('gCatalogStatus').textContent='Cargando productos…';$('gSettingsStatus').textContent='Cargando cobro, entrega e imágenes…';
     await Promise.allSettled([
       (async()=>{try{
         const r=await api(`/api/company/${encodeURIComponent(target)}/gastro/bundle`);if(target!==companyId)return;
-        gastroRevision=r.revision;gastroData={categorias:r.categorias||[],productos:r.productos||[],variantes:r.variantes||[],extras:r.extras||[]};
-        renderGastro();$('gCatalogFields').disabled=false;$('gCatalogStatus').textContent='Productos y precios listos.';
+        gastroRevision=r.revision;gastroCanEdit=r.canEdit===true;gastroData={categorias:r.categorias||[],productos:r.productos||[],variantes:r.variantes||[],extras:r.extras||[]};
+        renderGastro();$('gCatalogFields').disabled=!gastroCanEdit;$('gCatalogStatus').textContent=gastroCanEdit?'Productos y precios listos.':'Catálogo disponible en modo consulta. Pedí permiso de edición al administrador.';
       }catch(err){if(target===companyId){gastroData={categorias:[],productos:[],variantes:[],extras:[]};renderGastro();$('gCatalogStatus').textContent='Productos: '+(err.message||err);}}})(),
       (async()=>{try{
         const r=await api(`/api/company/${encodeURIComponent(target)}/gastro/settings`);if(target!==companyId)return;
-        acceptGastroSettings(r);$('gSettingsStatus').textContent='Cobro, entrega e imágenes listos.';
+        acceptGastroSettings(r);$('gSettingsStatus').textContent=gastroSettingsCanEdit?'Cobro, entrega e imágenes listos.':'Cobro, entrega e imágenes en modo consulta.';
       }catch(err){if(target===companyId){gastroSettingsData={menu:{imagenes:[]},pagos:{items:[]},entrega:{zonas:[]}};renderGastroSettings();$('gSettingsStatus').textContent='Configuración: '+(err.message||err);}}})()
     ]);
-    if(target===companyId)await loadGastroMigration();
+    if(target===companyId&&String(currentUser?.role||'').toUpperCase()==='SUPERADMIN')await loadGastroMigration();
   }
   function renderGastroSettings(){
     const {menu={},pagos={},entrega={}}=gastroSettingsData;
@@ -2980,6 +2984,7 @@
   }
   async function settingsRequest(path,data={},message='Cambios guardados.'){
     if(settingsSaving)return false;
+    if(!gastroSettingsCanEdit){showNotice('Tu usuario no tiene permiso para editar estos datos.');return false;}
     if(settingsRevision===null){showNotice('Primero cargá la configuración de Gastro.');return false;}
     const target=companyId;settingsSaving=true;$('gSettingsFields').disabled=true;
     try{
@@ -2987,7 +2992,7 @@
       if(target!==companyId)return false;
       acceptGastroSettings(r);$('gSettingsStatus').textContent=message;return true;
     }catch(err){if(target===companyId){$('gSettingsStatus').textContent='No se guardó: '+(err.message||err);showNotice(err.message||String(err));}return false;}
-    finally{settingsSaving=false;if(target===companyId)$('gSettingsFields').disabled=settingsRevision===null;}
+    finally{settingsSaving=false;if(target===companyId)$('gSettingsFields').disabled=settingsRevision===null||!gastroSettingsCanEdit;}
   }
   async function saveGastroMenuConfig(){
     const ok=await settingsRequest('menu/config',{auto:$('gMenuAuto').checked});if(!ok)renderGastroSettings();
