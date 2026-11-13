@@ -1563,7 +1563,16 @@ app.use('/api/company/:companyId/health',async(req,res,next)=>{
  try{const c=await getCompany(req.params.companyId);if(!isHealth(c))return res.status(403).json({ok:false,error:'Esta empresa no tiene la demo Salud.'});req.healthCompany=c;res.set('Cache-Control','no-store');next();}catch{res.status(503).json({ok:false,error:'No se pudo consultar la demo.'});}
 });
 const healthError=(res,e)=>res.status(400).json({ok:false,error:e.code?'No se pudo completar la operación. Actualizá la agenda.':e.message});
-app.get('/api/company/:companyId/health/doctors',async(req,res)=>{try{res.json({ok:true,today:localToday(),items:await doctors(pool,req.params.companyId)});}catch(e){healthError(res,e);}});
+// El modo consulta no se determina en el navegador: el servidor comprueba el permiso real.
+async function healthOperationAllowed(req){
+ if(req.healthCompany?.service_state!=='ACTIVE')return false;
+ if(String(req.session?.role||'').toUpperCase()==='SUPERADMIN')return true;
+ const uid=Number(req.session?.uid||0);
+ if(!Number.isSafeInteger(uid)||uid<=0)return false;
+ const {rows}=await pool.query("SELECT uc.permissions FROM panel_user_companies uc JOIN panel_users u ON u.user_id=uc.user_id WHERE uc.company_id=$1 AND uc.user_id=$2 AND u.active=TRUE",[req.params.companyId,uid]);
+ return !!rows[0]&&rows[0].permissions?.view!==false&&rows[0].permissions?.operate!==false;
+}
+app.get('/api/company/:companyId/health/doctors',async(req,res)=>{try{res.json({ok:true,today:localToday(),items:await doctors(pool,req.params.companyId),canOperate:await healthOperationAllowed(req)});}catch{res.status(503).json({ok:false,error:'No se pudo verificar el acceso a la agenda.'});}});
 app.post('/api/company/:companyId/health/doctors',requireSuperadmin,async(req,res)=>{try{res.json({ok:true,id:await saveDoctor(pool,req.params.companyId,req.body||{})});}catch(e){healthError(res,e);}});
 app.get('/api/company/:companyId/health/availability',async(req,res)=>{try{res.json({ok:true,...await availability(pool,req.params.companyId,req.query.doctorId,String(req.query.date||''))});}catch(e){healthError(res,e);}});
 app.get('/api/company/:companyId/health/agenda',async(req,res)=>{try{res.json({ok:true,items:await appointments(pool,req.params.companyId,String(req.query.date||''),String(req.query.doctorId||''),String(req.query.specialty||''),String(req.query.service||''))});}catch(e){healthError(res,e);}});
