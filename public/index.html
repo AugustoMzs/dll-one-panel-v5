@@ -1372,11 +1372,12 @@
                 <div class="form-grid">
                   <div class="form-field full"><label>Nombre</label><input id="adminUserName"></div>
                   <div class="form-field full"><label>Usuario / correo</label><input id="adminUserLogin"></div>
-                  <div class="form-field full"><label>Contraseña inicial</label><input id="adminUserPassword" type="password"></div>
+                  <div class="form-field full"><label for="adminUserPassword">Contraseña inicial</label><input id="adminUserPassword" type="password" minlength="8" autocomplete="new-password" aria-describedby="adminUserPasswordHint adminUserCreateStatus"><small id="adminUserPasswordHint">Mínimo 8 caracteres.</small></div>
                   <div class="form-field"><label>Rol</label><select id="adminUserRole" onchange="$('adminUserCompany').disabled=this.value==='SUPERADMIN'"><option value="ADMIN_EMPRESA">Administrador empresa</option><option value="OPERADOR">Operador</option><option value="SUPERADMIN">Superadministrador (todas las empresas)</option></select></div>
                   <div class="form-field"><label>Empresa</label><select id="adminUserCompany"></select></div>
                 </div>
-                <div class="actions-row"><button class="btn btn-primary" onclick="createPanelUser()">Crear usuario</button></div>
+                <div class="actions-row"><button id="adminUserCreateButton" class="btn btn-primary" onclick="createPanelUser()">Crear usuario</button></div>
+                <p id="adminUserCreateStatus" role="status" aria-live="polite"></p>
               </div>
             </div>
 
@@ -3086,18 +3087,37 @@
   }
 
   async function createPanelUser(){
+    const button=$('adminUserCreateButton'), status=$('adminUserCreateStatus'), password=$('adminUserPassword');
+    if(button.disabled)return;
+    status.textContent='';password.removeAttribute('aria-invalid');
     const body={
       displayName:$('adminUserName').value.trim(),
       loginKey:$('adminUserLogin').value.trim(),
-      password:$('adminUserPassword').value,
+      password:password.value,
       role:$('adminUserRole').value,
       companyIds:[$('adminUserCompany').value].filter(Boolean)
     };
+    function invalid(message, field){
+      status.textContent=message;
+      if(field){field.setAttribute('aria-invalid','true');field.focus();}
+    }
+    if(!body.loginKey){invalid('Ingresá un usuario o correo.',$('adminUserLogin'));return;}
+    $('adminUserLogin').removeAttribute('aria-invalid');
+    if(body.password.length<8){invalid('La contraseña debe tener al menos 8 caracteres.',password);return;}
+    if(body.role!=='SUPERADMIN'&&!body.companyIds.length){invalid('Seleccioná una empresa para este usuario.',$('adminUserCompany'));return;}
+    $('adminUserCompany').removeAttribute('aria-invalid');
     if(body.role==='SUPERADMIN'){body.companyIds=[];if(!confirm('Este usuario podrá administrar todas las empresas, crear usuarios y eliminar accesos. ¿Crear superadministrador?'))return;}
-    await api('/api/admin/users',{method:'POST',body:JSON.stringify(body)});
-    $('adminUserName').value='';$('adminUserLogin').value='';$('adminUserPassword').value='';
-    await loadAdmin();
-    showNotice('Usuario creado. Ya puede ingresar al Panel V5.');
+    button.disabled=true;button.textContent='Creando…';status.textContent='Creando usuario…';
+    try {
+      await api('/api/admin/users',{method:'POST',body:JSON.stringify(body)});
+      $('adminUserName').value='';$('adminUserLogin').value='';password.value='';
+      status.textContent='Usuario creado. Ya puede ingresar al Panel V5.';
+      showNotice(status.textContent);
+      try {await loadAdmin();}
+      catch {status.textContent='El usuario fue creado, pero no se pudo actualizar la lista. Recargá el panel para verlo.';}
+    } catch(err) {
+      status.textContent=err.message||'No se pudo crear el usuario. Intentá nuevamente.';
+    } finally {button.disabled=false;button.textContent='Crear usuario';}
   }
 
   if('serviceWorker' in navigator){
