@@ -1373,7 +1373,7 @@
                   <div class="form-field full"><label>Nombre</label><input id="adminUserName"></div>
                   <div class="form-field full"><label>Usuario / correo</label><input id="adminUserLogin"></div>
                   <div class="form-field full"><label>Contraseña inicial</label><input id="adminUserPassword" type="password"></div>
-                  <div class="form-field"><label>Rol</label><select id="adminUserRole"><option value="ADMIN_EMPRESA">Administrador empresa</option><option value="OPERADOR">Operador</option></select></div>
+                  <div class="form-field"><label>Rol</label><select id="adminUserRole" onchange="$('adminUserCompany').disabled=this.value==='SUPERADMIN'"><option value="ADMIN_EMPRESA">Administrador empresa</option><option value="OPERADOR">Operador</option><option value="SUPERADMIN">Superadministrador (todas las empresas)</option></select></div>
                   <div class="form-field"><label>Empresa</label><select id="adminUserCompany"></select></div>
                 </div>
                 <div class="actions-row"><button class="btn btn-primary" onclick="createPanelUser()">Crear usuario</button></div>
@@ -3093,6 +3093,7 @@
       role:$('adminUserRole').value,
       companyIds:[$('adminUserCompany').value].filter(Boolean)
     };
+    if(body.role==='SUPERADMIN'){body.companyIds=[];if(!confirm('Este usuario podrá administrar todas las empresas, crear usuarios y eliminar accesos. ¿Crear superadministrador?'))return;}
     await api('/api/admin/users',{method:'POST',body:JSON.stringify(body)});
     $('adminUserName').value='';$('adminUserLogin').value='';$('adminUserPassword').value='';
     await loadAdmin();
