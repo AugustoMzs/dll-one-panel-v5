@@ -1,3 +1,5 @@
+import {initBarber,barberChat} from './barber.js';
+import {barberRouter} from './barber_routes.js';
 import {initLodging,lodgingCatalog,lodgingChat} from './lodging.js';
 import {lodgingRouter} from './lodging_routes.js';
 import {initVoiceSettings,getVoiceSettings,saveVoiceSettings,voicePreference} from './voice_settings.js';
@@ -1158,6 +1160,14 @@ app.post('/motor/config-snapshot',authenticateMotorRequest,async(req,res)=>{
 });
 
 
+app.post('/motor/barber/chat',authenticateMotorRequest,async(req,res)=>{
+ res.set('Cache-Control','no-store');try{
+ const c=await getCompany(req.body?.companyId);
+ if(!configuredModule(c,'barberias')||c.service_state!=='ACTIVE'||String(c.phone_number_id)!==String(req.body.phoneNumberId))return res.status(403).json({ok:false,error:'ONE Barberías no está habilitado.'});
+ res.json({ok:true,...await barberChat(pool,c,req.body||{},async prompt=>(await postMotor('/admin/barber/interpret',{prompt},20000)).interpretation)});
+ }catch{res.status(503).json({ok:false,error:'No pude completar la gestión. Consultá tus turnos para verificar el estado antes de volver a reservar.'});}
+});
+
 async function lodgingMotorCompany(req,res){
  const c=await getCompany(req.body?.companyId);
  if(!configuredModule(c,'cabanas')||c.service_state!=='ACTIVE'||String(c.phone_number_id)!==String(req.body.phoneNumberId)){res.status(403).json({ok:false,error:'ONE Cabañas no está habilitado.'});return null;}return c;
@@ -1165,7 +1175,7 @@ async function lodgingMotorCompany(req,res){
 app.post('/motor/lodging/chat',authenticateMotorRequest,async(req,res)=>{
  res.set('Cache-Control','no-store');try{const c=await lodgingMotorCompany(req,res);if(!c)return;
  res.json({ok:true,...await lodgingChat(pool,c,req.body||{},async prompt=>(await postMotor('/admin/lodging/interpret',{prompt},20000)).interpretation)});
- }catch{res.status(503).json({ok:false,error:'No se pudo consultar el alojamiento. No hay una reserva confirmada.'});}
+ }catch{res.status(503).json({ok:false,error:'No se pudo consultar el alojamiento. Verificá con el alojamiento el estado de cualquier solicitud anterior.'});}
 });
 app.post('/motor/lodging/photo',authenticateMotorRequest,async(req,res)=>{
  res.set('Cache-Control','no-store');try{const c=await lodgingMotorCompany(req,res);if(!c)return;
@@ -1201,7 +1211,7 @@ app.get('/motor/company/:companyId/service',authenticateMotorRequest,async(req,r
  res.set('Cache-Control','no-store');try{
  const c=await getCompany(req.params.companyId);
  const active=!!c&&c.service_state==='ACTIVE'&&String(c.phone_number_id)===String(req.query.phoneNumberId||'');
- res.json({ok:true,active,voice:active?await getVoiceSettings(pool,c.company_id):{enabled:false},module:active?['eventos','salud','gastro','ventas','cabanas'].find(key=>configuredModule(c,key))||null:null});
+ res.json({ok:true,active,voice:active?await getVoiceSettings(pool,c.company_id):{enabled:false},module:active?['eventos','salud','gastro','ventas','cabanas','barberias'].find(key=>configuredModule(c,key))||null:null});
  }catch{res.status(503).json({ok:false,error:'No se pudo verificar el servicio.'});}
 });
 app.get("/motor/company/:companyId/pickup", authenticateMotorRequest, async (req,res) => {
@@ -1553,6 +1563,7 @@ app.use('/api/company/:companyId/catalog/tools',salesToolsRouter(pool,getCompany
 app.use('/api/company/:companyId/catalog/imports',salesImportRouter(pool,getCompany));
 app.use('/api/company/:companyId/events',eventsRouter(pool));
 app.use('/api/company/:companyId/lodging',lodgingRouter(pool));
+app.use('/api/company/:companyId/barber',barberRouter(pool));
 app.use('/api/company/:companyId/payments',paymentRouter(pool));
 
 // Demo administrative scheduling, isolated from production Gastro and other tenants.
@@ -2647,6 +2658,7 @@ await initHealthAssistant(pool);
 await initVoiceSettings(pool);
 await initEvents(pool);
 await initLodging(pool);
+await initBarber(pool);
 await initPayments(pool);
 let paymentFlushBusy=false;
 setInterval(async()=>{if(paymentFlushBusy)return;paymentFlushBusy=true;try{await flushPaymentNotifications(pool,body=>postMotor('/admin/panel/payment-notice',body));}finally{paymentFlushBusy=false;}},30000).unref();
