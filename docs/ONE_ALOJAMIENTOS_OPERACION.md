@@ -23,3 +23,5 @@ Migración aditiva al iniciar: panel_lodging_settings y panel_lodging_bookings e
 Antes de activar para un cliente: registrar disponibilidad completa, tarifas y condiciones reales, probar dos solicitudes solapadas, cancelación, reintento, cambio de empresa y flujo de audio. Confirmar la representación de los formularios/calendario en Safari y Chrome de teléfono. La validación local usa PostgreSQL embebido y adaptadores de IA/WhatsApp simulados, no sustituye la prueba real.
 
 Desplegar panel y motor compatibles. Revertir código conserva las tablas nuevas pero deja sin interfaz de gestión las reservas creadas; pausar Cabañas si se revierte el panel hasta restablecer la gestión.
+
+Refuerzo de noviembre: el motor también limita el envío a tres fotos por respuesta. Las altas de solicitudes/bloqueos y confirmaciones rechazan entradas pasadas. Un fallo de consulta no niega la existencia de reservas anteriores: solicita verificar el estado con el alojamiento.

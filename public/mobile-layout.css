@@ -40,3 +40,8 @@
  .metric{padding:12px}.metric .value{font-size:28px}
  .app>main>header>div:last-child{flex:1 1 100%;justify-content:flex-end}
 }
+
+/* Appointment cards preserve content and controls on narrow screens. */
+#barber .card{min-width:0;overflow-wrap:anywhere}
+#barber .form-field input:not([type=checkbox]),#barber .form-field textarea{max-width:100%;box-sizing:border-box}
+@media(max-width:600px){#barber .form-grid{grid-template-columns:minmax(0,1fr)}#barber .actions-row{flex-wrap:wrap}#barber summary{padding:12px 0;cursor:pointer}}

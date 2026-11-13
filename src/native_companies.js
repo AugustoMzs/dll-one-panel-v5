@@ -10,7 +10,7 @@ export async function createNativeCompany(db,input,actor){
  if(!name)throw Error('Ingresá el nombre de la empresa.');
  if(!['PRODUCTOS','SERVICIOS','MIXTO'].includes(type))throw Error('Tipo de negocio inválido.');
  if(slug&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))throw Error('Usá letras minúsculas, números y guiones para el slug.');
- const modules=Object.fromEntries(['ventas','gastro','eventos','servicios','salud','cabanas'].map(k=>[k,input.modules?.[k]===true]));
+ const modules=Object.fromEntries(['ventas','gastro','eventos','servicios','salud','cabanas','barberias'].map(k=>[k,input.modules?.[k]===true]));
  validateSingleModule(modules);
  if(!Object.values(modules).some(Boolean))throw Error('Elegí al menos un módulo.');
  const requestId=clean(input.requestId,100);if(!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId))throw Error('Recargá el formulario para crear la empresa.');
