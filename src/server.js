@@ -1,3 +1,4 @@
+import {registerUserAccessRoutes} from './user_access.js';
 import {initBarber,barberChat} from './barber.js';
 import {barberRouter} from './barber_routes.js';
 import {initLodging,lodgingCatalog,lodgingChat} from './lodging.js';
@@ -63,7 +64,6 @@ import {
   listPanelUsers,
   createPanelUser,
   updatePanelUserCompanies,
-  setPanelUserActive,
   upsertConversationEvent,
   setConversationMode,
   getConversationState,
@@ -1049,15 +1049,7 @@ app.post("/api/admin/users", authRequired, requireSuperadmin, async (req, res) =
   }
 });
 
-app.post("/api/admin/users/:userId/active", authRequired, requireSuperadmin, async (req, res) => {
-  try {
-    const user = await setPanelUserActive(req.params.userId, !!req.body?.active);
-    if (!user) return res.status(404).json({ok:false,error:"Usuario no encontrado."});
-    return res.json({ok:true,user});
-  } catch (err) {
-    return res.status(400).json({ok:false,error:String(err?.message || err)});
-  }
-});
+registerUserAccessRoutes(app, {pool, authRequired, requireSuperadmin});
 
 app.post("/api/admin/companies", authRequired, requireSuperadmin, async (req, res) => {
   try {
