@@ -2086,10 +2086,6 @@ app.get('/api/company/:companyId/order-hours',authRequired,async(req,res)=>{
 });
 app.post('/api/company/:companyId/order-hours',authRequired,requireSuperadmin,async(req,res)=>{
  try{
-  if(String(req.session?.role||'').toUpperCase()!=='SUPERADMIN'){
-   const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];
-   if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar horarios.'});
-  }
   const row=await saveOrderHours(pool,req.params.companyId,req.body||{});res.json({ok:true,...row,status:evaluateHours(row.settings)});
  }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
 });
@@ -2102,10 +2098,6 @@ app.get('/api/company/:companyId/bot-instructions',authRequired,async(req,res)=>
 app.post('/api/company/:companyId/bot-instructions',authRequired,requireSuperadmin,async(req,res)=>{
  res.set('Cache-Control','no-store');
  try{
-  if(String(req.session?.role||'').toUpperCase()!=='SUPERADMIN'){
-   const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];
-   if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar las instrucciones del bot.'});
-  }
   res.json({ok:true,...await saveBotInstructions(pool,req.params.companyId,req.body||{})});
  }catch(err){res.status(400).json({ok:false,error:err.message});}
 });
@@ -2116,9 +2108,7 @@ app.get('/api/company/:companyId/profile',authRequired,async(req,res)=>{
 });
 app.post('/api/company/:companyId/profile',authRequired,requireSuperadmin,async(req,res)=>{
  try{
-  const isSuper=String(req.session?.role||'').toUpperCase()==='SUPERADMIN';
-  if(!isSuper){const access=(await pool.query('SELECT permissions FROM panel_user_companies WHERE company_id=$1 AND user_id=$2',[req.params.companyId,req.session?.uid])).rows[0];if(!access||access.permissions?.editBusiness===false)return res.status(403).json({ok:false,error:'No tenés permiso para editar la empresa.'});}
-  res.json({ok:true,...await saveBusinessProfile(pool,req.params.companyId,req.body||{},isSuper)});
+  res.json({ok:true,...await saveBusinessProfile(pool,req.params.companyId,req.body||{},true)});
  }catch(err){res.status(400).json({ok:false,error:String(err.message||err)});}
 });
 
